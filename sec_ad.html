@@ -1,484 +1,459 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zoe Admin Console</title>
+    <title>Zoe Admin | Mobile Hub</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --primary: #00b578;
-            --bg: #f8f9fa;
-            --white: #ffffff;
-            --text: #1a1a1a;
-            --gray: #6c757d;
-            --border: #edf2f0;
-            --danger: #ff3b30;
+        :root { 
+            --primary: #00b578; 
+            --danger: #ff3b30; 
+            --warning: #ff9500; 
+            --info: #007aff;
+            --dark: #1a1a1a;
+            --bg: #f8f9fb;
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; color: var(--dark); line-height: 1.5; padding-bottom: 40px; }
 
-        .admin-header {
-            background: var(--white);
-            padding: 20px;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .admin-header h1 { margin: 0; font-size: 18px; font-weight: 800; color: var(--primary); }
+        .container { width: 100%; max-width: 1200px; margin: auto; padding: 15px; }
 
-        /* Updated Stats Grid to hold 6 items neatly */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            padding: 15px 20px;
-        }
-        .stat-card {
-            background: var(--white);
-            padding: 12px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            border: 1px solid var(--border);
-            text-align: center;
-        }
-        .stat-card small { color: var(--gray); font-size: 10px; font-weight: 700; text-transform: uppercase; display: block; white-space: nowrap; }
-        .stat-card div { font-size: 14px; font-weight: 800; margin-top: 5px; color: var(--text); }
+        .header-flex { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        @media (min-width: 768px) { .header-flex { flex-direction: row; justify-content: space-between; align-items: center; } }
 
-        .section { padding: 0 20px; }
-        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        /* Stats Grid */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
 
-        .list-item {
-            background: var(--white);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            border: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-        }
-        .item-info b { display: block; font-size: 14px; }
-        .item-info span { font-size: 12px; color: var(--gray); }
-        .item-amount { text-align: right; font-weight: 700; color: var(--primary); }
+        .stat-card { background: white; padding: 15px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border-left: 4px solid var(--primary); }
+        .stat-card h4 { margin: 0; color: #888; font-size: 10px; text-transform: uppercase; }
+        .stat-card p { margin: 5px 0 0; font-size: 16px; font-weight: 800; }
 
-        .btn-action { background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
-
-        .admin-nav {
-            position: fixed;
-            bottom: 0;
-            width: 100%;
-            background: var(--white);
-            display: flex;
-            justify-content: space-around;
-            padding: 15px 0 25px;
-            border-top: 1px solid var(--border);
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.03);
-            z-index: 100;
-        }
-        .nav-btn { position: relative; background: none; border: none; color: var(--gray); font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; flex: 1; }
-        .nav-btn.active { color: var(--primary); }
-        .nav-btn i { font-size: 18px; display: block; margin-bottom: 4px; }
+        /* Request Cards */
+        .section-title { font-size: 16px; font-weight: 800; margin: 25px 0 15px; display: flex; align-items: center; gap: 10px; padding-left: 5px; }
         
-        /* Notification Badge CSS */
-        .nav-badge { position: absolute; top: -5px; right: calc(50% - 18px); background: var(--danger); color: white; border-radius: 50%; min-width: 16px; height: 16px; line-height: 16px; font-size: 9px; font-weight: 800; display: flex; justify-content: center; align-items: center; padding: 0 4px; box-shadow: 0 2px 4px rgba(255,59,48,0.3); }
-
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: flex-end; }
-        .modal-content { 
-            background: var(--white); 
-            width: 100%; 
-            border-radius: 25px 25px 0 0; 
-            padding: 25px; 
-            max-height: 85vh; 
-            overflow-y: auto;
-            animation: slideUp 0.3s ease-out;
+        .request-card { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 18px; 
+            margin-bottom: 12px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid #eee;
         }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
-        .detail-row label { color: var(--gray); font-size: 13px; }
-        .detail-row span { font-weight: 600; font-size: 14px; }
+        .req-info { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+        .req-user { font-weight: 800; font-size: 14px; }
+        .req-meta { font-size: 11px; color: #777; }
+        .req-amount { font-size: 18px; font-weight: 900; color: var(--dark); }
 
-        .btn-approve { background: var(--primary); color: white; border: none; padding: 12px 15px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 15px; cursor: pointer; }
+        .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        /* Buttons */
+        .btn { padding: 12px; border-radius: 12px; border: none; cursor: pointer; font-weight: 700; font-size: 13px; text-align: center; }
+        .btn-approve { background: var(--primary); color: white; }
+        .btn-reject { background: #fee; color: var(--danger); }
+        .btn-view { background: #f0f0f0; color: var(--dark); }
 
-        @media (min-width: 768px) {
-            .stats-container { grid-template-columns: repeat(6, 1fr); }
-            .modal-content { width: 400px; margin: auto; border-radius: 20px; align-self: center; }
-            .modal { align-items: center; }
-        }
+        .badge { padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+        .bg-loan { background: #eef2ff; color: #4f46e5; }
+        .bg-interest { background: #fffbeb; color: #b45309; }
+
+        /* User Table */
+        .search-box { width: 100%; padding: 15px; border: 1px solid #ddd; border-radius: 15px; margin-bottom: 15px; font-size: 16px; }
+        .table-container { background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 15px; text-align: left; border-bottom: 1px solid #f0f0f0; }
     </style>
 </head>
 <body>
 
-    <div class="admin-header">
-        <h1><i class="fas fa-shield-alt"></i> Zoe Admin Console</h1>
-    </div>
-
-    <div id="dashboard-view" class="view-section">
-        <div class="stats-container">
-            <div class="stat-card"><small>Users</small><div id="stat-users">0</div></div>
-            <div class="stat-card"><small>Total Bal</small><div id="stat-bal">₦0</div></div>
-            <div class="stat-card"><small>Loan Bal</small><div id="stat-loan">₦0</div></div>
-            <div class="stat-card"><small>Daily Bal</small><div id="stat-daily">₦0</div></div>
-            <div class="stat-card"><small>Pending</small><div id="stat-pending">0</div></div>
-            <div class="stat-card"><small>Loans Req</small><div id="stat-req">0</div></div>
-        </div>
-
-        <div class="section">
-            <div class="section-title">Connected Users <i class="fas fa-search" style="font-size: 14px; color: var(--gray);"></i></div>
-            <div id="user-list"></div>
-        </div>
-    </div>
-
-    <div id="verify-view" class="view-section section" style="display:none;">
-        <h2 style="margin-top:20px; font-size:16px;">Pending Contributions</h2>
-        <div id="verify-list"></div>
-    </div>
-
-    <div id="loans-view" class="view-section section" style="display:none;">
-        <h2 style="margin-top:20px; font-size:16px;">Loan Requests</h2>
-        <div id="loan-list"></div>
-    </div>
-
-    <div id="trans-view" class="view-section section" style="display:none;">
-        <h2 style="margin-top:20px; font-size:16px;">Recent Approved Ticks</h2>
-        <div id="trans-list"></div>
-    </div>
-
-    <div class="modal" id="userModal" onclick="if(event.target == this) closeModal()">
-        <div class="modal-content">
-            <div style="text-align:center; margin-bottom: 20px;">
-                <div style="width:60px; height:60px; background: #e6f7f1; color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 24px;">
-                    <i class="fas fa-user"></i>
-                </div>
-                <h2 id="modal-user-name" style="margin:0;">User Info</h2>
+    <div class="container">
+        <div class="header-flex">
+            <div>
+                <h1 style="margin:0; font-size: 24px;">Zoe Admin <span style="color:var(--primary)">Hub</span></h1>
+                <p style="color:#888; margin:0; font-size: 13px;" id="lastRefreshed"></p>
             </div>
-            <div id="modal-details"></div>
-            <button class="btn-approve" style="background:#f4f5f7; color:var(--text); border:1px solid #eee;" onclick="closeModal()">Close Console</button>
+            <button onclick="openAdminQuickPay()" style="background:#007bff; color:white; border:none; padding:12px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">
+    <i class="fas fa-check-double"></i> Manual Day Payment
+</button>
+
+            <button class="btn btn-view" onclick="loadAllData()">
+                <i class="fas fa-sync-alt"></i> Sync Data
+            </button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Main Balances</h4>
+                <p id="statMainBal">₦0</p>
+            </div>
+            <div class="stat-card" style="border-color: var(--info);">
+                <h4>Loan Balances</h4>
+                <p id="statLoanBal">₦0</p>
+            </div>
+            <div class="stat-card" style="border-color: var(--warning);">
+                <h4>Pending Tasks</h4>
+                <p id="statPending">0</p>
+            </div>
+            <div class="stat-card" style="border-color: var(--danger);">
+                <h4>Loan Requests</h4>
+                <p id="statLoanReqs">0</p>
+            </div>
+        </div>
+        
+        
+
+        <div class="section-title"><i class="fas fa-money-bill-wave" style="color:var(--primary)"></i> Payment Verifications</div>
+        <div id="paymentList">Loading payments...</div>
+
+        <div class="section-title"><i class="fas fa-hand-holding-usd" style="color:var(--info)"></i> Loan Disbursements</div>
+        <div id="loanDisbursementList">Loading requests...</div>
+
+        <div class="section-title"><i class="fas fa-arrow-circle-up" style="color:var(--danger)"></i> Standard Withdrawals</div>
+        <div id="withdrawalList">Loading payouts...</div>
+
+        <div class="section-title"><i class="fas fa-users"></i> Member Management</div>
+        <input type="text" id="userSearch" class="search-box" placeholder="Search member name or phone..." oninput="renderUsers()">
+        <div class="table-container">
+            <table>
+                <tbody id="userTableBody"></tbody>
+            </table>
         </div>
     </div>
+<div id="adminQuickPayModal" class="modal" style="display:none; position:fixed; z-index:1000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8);">
+    <div style="background:white; margin:10% auto; padding:20px; width:90%; max-width:400px; border-radius:15px; position:relative;">
+        <span onclick="closeModal('adminQuickPayModal')" style="position:absolute; right:15px; top:10px; font-size:24px; cursor:pointer;">&times;</span>
+        
+        <h3>Manual Loan Payment</h3>
+        <input type="text" id="adminUserSearch" placeholder="Search name or phone..." 
+               onkeyup="filterQuickPayUsers()" 
+               style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px;">
+        
+        <div id="quickPayList" style="max-height:300px; overflow-y:auto;">
+            </div>
+    </div>
+</div>
 
-    <nav class="admin-nav">
-        <button class="nav-btn active" onclick="nav('dashboard', this)"><i class="fas fa-users"></i>Users</button>
-        <button class="nav-btn" onclick="nav('verify', this)">
-            <i class="fas fa-check-circle"></i>Verify
-            <span class="nav-badge" id="badge-verify" style="display:none;">0</span>
-        </button>
-        <button class="nav-btn" onclick="nav('loans', this)">
-            <i class="fas fa-hand-holding-usd"></i>Loans
-            <span class="nav-badge" id="badge-loans" style="display:none;">0</span>
-        </button>
-        <button class="nav-btn" onclick="nav('trans', this)"><i class="fas fa-receipt"></i>Trans</button>
-        <button class="nav-btn" onclick="location.reload()"><i class="fas fa-sync"></i>Sync</button>
-    </nav>
+</div>
+
 
     <script>
-        
         const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // State trackers for notification badges
-        let currentTab = 'dashboard';
-        let pendingVerifyCount = 0;
-        let pendingLoansCount = 0;
-        let knownVerifyCount = 0;
-        let knownLoansCount = 0;
+        let allUsers = [];
 
-        window.onload = () => loadAdminData();
+        window.onload = loadAllData;
 
-        async function loadAdminData() {
-            // Fetch all required data
+        async function loadAllData() {
+            document.getElementById('lastRefreshed').innerText = "Refreshing...";
+            
+            // 1. Load Payments (Cash Main / Cash Loan / Interest)
+            const { data: payments } = await client.from('contributions').select('*, profiles(full_name, phone)').eq('status', 'pending');
+            renderPayments(payments);
+
+            // 2. Load Loan Requests (Disbursements)
+            const { data: loanReqs } = await client.from('loan_requests').select('*, profiles(full_name, phone)').eq('status', 'pending');
+            renderLoanRequests(loanReqs);
+
+            // 3. Load Standard Withdrawals
+            const { data: withdrawals } = await client.from('withdrawals').select('*, profiles(full_name, phone)').eq('status', 'pending');
+            renderWithdrawals(withdrawals);
+
+            // 4. Load User Directory
             const { data: users } = await client.from('profiles').select('*').order('full_name');
-            const { data: pendingCash } = await client.from('contributions').select('*, profiles(full_name, phone)').eq('status', 'pending').order('created_at', { ascending: false });
-            const { data: trans } = await client.from('contributions').select('*, profiles(full_name)').eq('status', 'approved').order('created_at', { ascending: false }).limit(100);
-            const { data: loans } = await client.from('loan_requests').select('*').order('created_at', { ascending: false });
+            allUsers = users;
+            renderUsers();
 
-            // Render all UI components
-            renderUsers(users || []);
-            renderVerify(pendingCash || []);
-            renderTransactions(trans || []);
-            renderLoans(loans || []);
+            updateStats(users, payments, loanReqs, withdrawals);
+            document.getElementById('lastRefreshed').innerText = "Last synced: " + new Date().toLocaleTimeString();
         }
-        function lockAdminConsole() {
-    const MASTER_PIN = "2026"; // Change your PIN here
-    const authKey = 'zoe_admin_authorized';
 
-    // If already authorized in this session, don't show the lock
-    if (sessionStorage.getItem(authKey) === 'true') return;
-
-    // 1. Create the Lock Overlay
-    const lockOverlay = document.createElement('div');
-    lockOverlay.id = 'admin-lock-screen';
-    lockOverlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px); z-index: 99999;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        transition: 0.5s ease;
-    `;
-
-    // 2. Create the Lock UI
-    lockOverlay.innerHTML = `
-        <div style="text-align: center; width: 100%; max-width: 300px; padding: 20px;">
-            <div style="background: #1a1a1a; color: white; width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 24px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
-                <i class="fas fa-lock"></i>
-            </div>
-            <h2 style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #1a1a1a;">Admin Locked</h2>
-            <p style="font-size: 13px; color: #666; margin-bottom: 25px;">Please enter your security PIN to access the Zoe Network Console.</p>
-            
-            <input type="password" id="adminPinInput" maxlength="4" placeholder="••••" 
-                style="width: 100%; padding: 18px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.8); text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
-            
-            <button id="unlockBtn" style="width: 100%; padding: 16px; background: #00b578; color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 15px rgba(0, 181, 120, 0.3);">
-                Unlock Console
-            </button>
-        </div>
-    `;
-
-    document.body.appendChild(lockOverlay);
-    document.body.style.overflow = 'hidden';
-
-    // 3. Logic to verify PIN
-    const input = document.getElementById('adminPinInput');
-    const btn = document.getElementById('unlockBtn');
-
-    const verify = () => {
-        if (input.value === MASTER_PIN) {
-            sessionStorage.setItem(authKey, 'true');
-            lockOverlay.style.opacity = '0';
-            setTimeout(() => {
-                lockOverlay.remove();
-                document.body.style.overflow = 'auto';
-            }, 500);
-        } else {
-            input.style.border = '1px solid #ff3b30';
-            input.value = '';
-            input.placeholder = "WRONG";
-            setTimeout(() => { input.placeholder = "••••"; input.style.border = '1px solid rgba(0,0,0,0.1)'; }, 1000);
+        function updateStats(users, p, l, w) {
+            let mainTotal = users.reduce((acc, curr) => acc + (parseFloat(curr.balance) || 0), 0);
+            let loanTotal = users.reduce((acc, curr) => acc + (parseFloat(curr.loan_balance) || 0), 0);
+            document.getElementById('statMainBal').innerText = `₦${mainTotal.toLocaleString()}`;
+            document.getElementById('statLoanBal').innerText = `₦${loanTotal.toLocaleString()}`;
+            document.getElementById('statPending').innerText = (p?.length || 0) + (w?.length || 0);
+            document.getElementById('statLoanReqs').innerText = (l?.length || 0);
         }
-    };
 
-    btn.onclick = verify;
-    input.onkeypress = (e) => { if (e.key === 'Enter') verify(); };
+        function renderPayments(list) {
+            const container = document.getElementById('paymentList');
+            if(!list || list.length === 0) { container.innerHTML = '<p style="padding:15px; color:#999;">No pending payments</p>'; return; }
+            
+            container.innerHTML = list.map(item => `
+                <div class="request-card">
+                    <div class="req-info">
+                        <div>
+                            <div class="req-user">${item.profiles.full_name}</div>
+                            <div class="req-meta">${item.profiles.phone}</div>
+                            <span class="badge ${item.category === 'loan_savings' ? 'bg-loan' : 'bg-interest'}">${item.category.replace('_', ' ')}</span>
+                        </div>
+                        <div class="req-amount">₦${item.amount.toLocaleString()}</div>
+                    </div>
+                    <div class="action-btns">
+                        <button class="btn btn-approve" onclick="approvePayment('${item.id}', '${item.user_id}', ${item.amount}, '${item.category}', '${item.profiles.phone}')">Confirm Recieved</button>
+                        <button class="btn btn-reject" onclick="deleteRecord('contributions', '${item.id}')">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderLoanRequests(list) {
+            const container = document.getElementById('loanDisbursementList');
+            if(!list || list.length === 0) { container.innerHTML = '<p style="padding:15px; color:#999;">No loan requests</p>'; return; }
+
+            container.innerHTML = list.map(item => `
+                <div class="request-card" style="border-left: 5px solid var(--info);">
+                    <div class="req-info">
+                        <div>
+                            <div class="req-user">${item.profiles.full_name}</div>
+                            <div class="req-meta">${item.bank_name} | ${item.account_number}</div>
+                            <small style="color:var(--primary); font-weight:bold;">Interest Prepaid: ₦${item.interest_amount}</small>
+                        </div>
+                        <div class="req-amount">₦${item.amount.toLocaleString()}</div>
+                    </div>
+                    <div class="action-btns">
+                        <button class="btn btn-approve" style="background:var(--info)" onclick="approveLoanDisbursement('${item.id}', '${item.user_id}', ${item.amount}, '${item.profiles.phone}')">Mark Disbursed</button>
+                        <button class="btn btn-reject" onclick="deleteRecord('loan_requests', '${item.id}')">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderWithdrawals(list) {
+            const container = document.getElementById('withdrawalList');
+            if(!list || list.length === 0) { container.innerHTML = '<p style="padding:15px; color:#999;">No pending withdrawals</p>'; return; }
+
+            container.innerHTML = list.map(item => `
+                <div class="request-card" style="border-left: 5px solid var(--danger);">
+                    <div class="req-info">
+                        <div>
+                            <div class="req-user">${item.profiles.full_name}</div>
+                            <div class="req-meta">${item.bank_name} | ${item.account_number}</div>
+                        </div>
+                        <div class="req-amount">₦${item.amount.toLocaleString()}</div>
+                    </div>
+                    <div class="action-btns">
+                        <button class="btn btn-approve" style="background:var(--danger)" onclick="approveWithdrawal('${item.id}', '${item.user_id}', ${item.amount}, '${item.profiles.phone}')">Mark Paid</button>
+                        <button class="btn btn-reject" onclick="deleteRecord('withdrawals', '${item.id}')">Decline</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderUsers() {
+            const search = document.getElementById('userSearch').value.toLowerCase();
+            const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(search) || u.phone.includes(search));
+            
+            document.getElementById('userTableBody').innerHTML = filtered.map(u => `
+                <tr>
+                    <td>
+                        <div style="font-weight:800; font-size:14px;">${u.full_name}</div>
+                        <div style="font-size:11px; color:#888;">${u.phone}</div>
+                        <div style="margin-top:5px;">
+                            <span class="badge" style="background:#eee">Main: ₦${(u.balance || 0).toLocaleString()}</span>
+                            <span class="badge" style="background:#eef2ff; color:#4f46e5">Loan: ₦${(u.loan_balance || 0).toLocaleString()}</span>
+                        </div>
+                    </td>
+                    <td style="text-align:right">
+                        <button class="btn" style="background:var(--dark); color:white; padding:8px 12px;" onclick="manualTopup('${u.id}', '${u.full_name}', '${u.phone}')"><i class="fas fa-plus"></i></button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // --- ACTION LOGIC ---
+
+        // --- UPDATED ACTION LOGIC ---
+
+async function approvePayment(id, uid, amt, category, phone) {
+    const { data: userProfile } = await client.from('profiles').select('*').eq('id', uid).single();
+    let updateData = {};
+    let msg = "";
+
+    if (category === 'loan_repayment') {
+        // Increment the day count upon approval
+        updateData.loan_days = (userProfile.loan_days || 0) + 1;
+        
+        // Add the 20% portion of the base repayment back to their loan_balance
+        const baseAmt = amt / 1.20; // Reversing the 20% markup to find base
+        const savingsAdded = baseAmt * 0.20;
+        updateData.loan_balance = (parseFloat(userProfile.loan_balance) || 0) + savingsAdded;
+        
+        msg = `Zoe: Cash repayment verified. You are now on Day ${updateData.loan_days}/90.`;
+    } 
+    // ... (keep your other category logic for loan_savings and main)
+
+    await client.from('profiles').update(updateData).eq('id', uid);
+    await client.from('contributions').update({ status: 'approved' }).eq('id', id);
+    
+    sendSms(phone, msg);
+    loadAllData();
 }
 
-        function renderUsers(data) {
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            
-            let totalBal = 0; 
-            let totalLoanBal = 0;
+async function approveLoanDisbursement(id, uid, amt, phone) {
+    if(!confirm("Confirm Disbursement: Have you transferred the funds? This starts the user at Day 0.")) return;
 
-            data.forEach(u => {
-                // Combine balance from schema versions if needed
-                const userBal = parseFloat(u.balance || 0) + parseFloat(u.loan_wallet || 0);
-                const userLoanBal = parseFloat(u.loan_balance || 0);
-                
-                totalBal += userBal;
-                totalLoanBal += userLoanBal;
-                
-                list.innerHTML += `
-                    <div class="list-item" onclick='viewUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>
-                        <div class="item-info">
-                            <b>${u.full_name}</b>
-                            <span>${u.phone} • Streak: ${u.loan_days || 0}d</span>
-                        </div>
-                        <div class="item-amount">₦${userBal.toLocaleString()}</div>
-                    </div>
-                `;
-            });
-            
-            document.getElementById('stat-users').innerText = data.length;
-            document.getElementById('stat-bal').innerText = `₦${totalBal.toLocaleString()}`;
-            document.getElementById('stat-loan').innerText = `₦${totalLoanBal.toLocaleString()}`;
+    // 1. Update Loan Request Status
+    const { error: loanError } = await client.from('loan_requests')
+        .update({ 
+            status: 'approved',
+            disbursed_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+
+    if (loanError) return alert("Update failed: " + loanError.message);
+
+    // 2. Initialize Repayment Tracker (Reset to Day 0)
+    const { error: profileError } = await client.from('profiles').update({
+        loan_days: 0,
+        updated_at: new Date().toISOString()
+    }).eq('id', uid);
+
+    if (profileError) return alert("Profile sync failed: " + profileError.message);
+
+    // 3. UI Feedback
+    document.getElementById('loanDisbursementList').innerHTML = "<p style='padding:15px;'>Syncing records...</p>";
+    
+    // 4. Send Notification & Refresh
+    await sendSms(phone, `Zoe: Your loan of ₦${amt.toLocaleString()} is disbursed. Repayment starts at Day 0. Good luck!`);
+    await loadAllData(); 
+    
+    alert("Loan marked as disbursed. User dashboard will now switch to Repayment Mode.");
+}
+
+// Function to show the modal and clear old search
+function openAdminQuickPay() {
+    document.getElementById('adminUserSearch').value = '';
+    filterQuickPayUsers();
+    document.getElementById('adminQuickPayModal').style.display = 'block';
+}
+
+function filterQuickPayUsers() {
+    const searchTerm = document.getElementById('adminUserSearch').value.toLowerCase();
+    const list = document.getElementById('quickPayList');
+    
+    // Filters based on the global allUsers array
+    const filtered = allUsers.filter(u => 
+        u.full_name.toLowerCase().includes(searchTerm) || u.phone.includes(searchTerm)
+    );
+
+    list.innerHTML = filtered.map(u => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid #eee;">
+            <div>
+                <strong>${u.full_name}</strong>
+                <div style="font-size:11px; color:#888;">Day ${u.loan_days || 0}/90</div>
+            </div>
+            <button onclick="confirmManualTick('${u.id}', '${u.full_name}', ${u.loan_days || 0})" 
+                    style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:5px;">
+                Tick Paid
+            </button>
+        </div>
+    `).join('');
+}
+
+async function confirmManualTick(uid, name, currentDay) {
+    if (!confirm(`Mark Day ${currentDay + 1} as paid for ${name}?`)) return;
+
+    // 1. Fetch User Profile and Loan in one go
+    const { data: profile } = await client.from('profiles').select('*').eq('id', uid).single();
+    
+    const { data: loan } = await client.from('loan_requests')
+        .select('amount')
+        .eq('user_id', uid)
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (!loan) return alert("User has no active approved loan.");
+
+    // 2. Perform Math
+    const baseDaily = loan.amount / 90;
+    const savingsToReturn = baseDaily * 0.20;
+    const newDay = (currentDay || 0) + 1;
+    const newLoanBal = (parseFloat(profile.loan_balance) || 0) + savingsToReturn;
+
+    // 3. Update Database
+    const { error } = await client.from('profiles').update({
+        loan_days: newDay,
+        loan_balance: newLoanBal
+    }).eq('id', uid);
+
+    if (!error) {
+        // 4. Record Transaction
+        await client.from('contributions').insert([{
+            user_id: uid,
+            amount: baseDaily * 1.20,
+            status: 'approved',
+            type: 'cash',
+            category: 'loan_repayment'
+        }]);
+
+        // 5. FIXED: Close Modal logic
+        // We target the specific floating div ID
+        const modal = document.getElementById('adminQuickPayModal');
+        if (modal) modal.style.display = 'none';
+
+        // 6. FIXED: Send SMS using the phone from the profile we fetched
+        if (profile.phone) {
+            await sendSms(profile.phone, `Zoe Admin: Day ${newDay} payment confirmed. ₦${Math.round(savingsToReturn)} added to your wallet.`);
         }
 
-        function renderVerify(data) {
-            const list = document.getElementById('verify-list');
-            
-            pendingVerifyCount = data.length;
-            document.getElementById('stat-pending').innerText = pendingVerifyCount;
+        alert(`${name} is now on Day ${newDay}.`);
+        loadAllData(); // Refresh main dashboard
+    } else {
+        alert("Update failed: " + error.message);
+    }
+}
 
-            // Notification Logic
-            const badge = document.getElementById('badge-verify');
-            if (pendingVerifyCount > knownVerifyCount && currentTab !== 'verify') {
-                badge.innerText = pendingVerifyCount;
-                badge.style.display = 'flex';
-            } else if (currentTab === 'verify') {
-                knownVerifyCount = pendingVerifyCount;
-            }
-            
-            if(data.length === 0) {
-                list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px; margin-top:30px;">No pending cash verifications.</p>';
-                return;
-            }
 
-            list.innerHTML = '';
-            data.forEach(c => {
-                list.innerHTML += `
-                    <div class="list-item" style="cursor:default;">
-                        <div class="item-info">
-                            <b>${c.profiles?.full_name || 'Unknown User'}</b>
-                            <span>₦${parseFloat(c.amount).toLocaleString()} • ${c.type.toUpperCase()}</span>
-                            <span style="font-size:10px; display:block; margin-top:3px;">${new Date(c.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <button class="btn-action" onclick="approvePendingCash('${c.id}', '${c.user_id}', ${c.amount}, '${c.profiles?.phone}')">Approve</button>
-                    </div>
-                `;
-            });
+
+        async function approveWithdrawal(id, uid, amt, phone) {
+            if(!confirm("Mark as paid?")) return;
+            // When standard withdrawal is approved, user balance is usually already deducted on request. 
+            // If not, deduct it here. For safety, we just mark as completed.
+            await client.from('withdrawals').update({ status: 'completed' }).eq('id', id);
+            sendSms(phone, `Zoe Network: Your withdrawal of ₦${amt.toLocaleString()} has been paid. check your bank.`);
+            loadAllData();
         }
 
-        function renderTransactions(data) {
-            const list = document.getElementById('trans-list');
-            let dailyBal = 0;
-            const today = new Date().toISOString().split('T')[0];
+        async function manualTopup(uid, name, phone) {
+            const type = prompt(`Top up for ${name}\nType '1' for Main Balance\nType '2' for Loan Balance`);
+            if(!type) return;
+            const amt = prompt("Enter Amount:");
+            if(!amt || isNaN(amt)) return alert("Invalid amount");
 
-            if(data.length === 0) list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px;">No recent transactions.</p>';
-            else list.innerHTML = '';
+            let updateData = {};
+            if(type === '1') updateData.balance = (allUsers.find(u => u.id === uid).balance || 0) + parseFloat(amt);
+            else if(type === '2') updateData.loan_balance = (allUsers.find(u => u.id === uid).loan_balance || 0) + parseFloat(amt);
+            else return alert("Invalid type");
 
-            data.forEach(t => {
-                // Calculate daily balance based on today's approved transactions
-                if (t.created_at.startsWith(today)) {
-                    dailyBal += parseFloat(t.amount || 0);
-                }
-
-                list.innerHTML += `
-                    <div class="list-item" style="cursor:default;">
-                        <div class="item-info">
-                            <b>${t.profiles?.full_name || 'User'}</b>
-                            <span>Tick: ₦${parseFloat(t.amount).toLocaleString()} (${t.type})</span>
-                        </div>
-                        <div style="font-size:11px; color:var(--primary); font-weight:800; text-align:right;">
-                            APPROVED<br>
-                            <span style="color:var(--gray); font-weight:400; font-size:9px;">${new Date(t.created_at).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            // Update Daily Bal Stat
-            document.getElementById('stat-daily').innerText = `₦${dailyBal.toLocaleString()}`;
+            await client.from('profiles').update(updateData).eq('id', uid);
+            sendSms(phone, `Zoe Admin: Your account has been manually credited with ₦${amt}.`);
+            loadAllData();
         }
 
-        function renderLoans(data) {
-            const list = document.getElementById('loan-list');
-            
-            // Count only pending loans for the stats counter
-            const pendingLoans = data.filter(l => l.status === 'pending');
-            pendingLoansCount = pendingLoans.length;
-            document.getElementById('stat-req').innerText = pendingLoansCount;
-
-            // Notification Logic
-            const badge = document.getElementById('badge-loans');
-            if (pendingLoansCount > knownLoansCount && currentTab !== 'loans') {
-                badge.innerText = pendingLoansCount;
-                badge.style.display = 'flex';
-            } else if (currentTab === 'loans') {
-                knownLoansCount = pendingLoansCount;
-            }
-            
-            if(!data || pendingLoans.length === 0) {
-                 list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px;">No pending loan requests.</p>';
-                 return;
-            }
-            
-            list.innerHTML = '';
-            pendingLoans.forEach(l => {
-                list.innerHTML += `
-                    <div class="list-item" style="cursor:default;">
-                        <div class="item-info">
-                            <b>Loan: ₦${parseFloat(l.amount).toLocaleString()}</b>
-                            <span>Bank: ${l.bank_name} (${l.account_number})</span>
-                        </div>
-                        <button class="btn-action" onclick="approveLoan('${l.id}')">Approve</button>
-                    </div>
-                `;
-            });
+        async function deleteRecord(table, id) {
+            if(!confirm("Are you sure you want to decline/delete this request?")) return;
+            await client.from(table).delete().eq('id', id);
+            loadAllData();
         }
 
-        function viewUser(u) {
-            document.getElementById('modal-user-name').innerText = u.full_name;
-            const details = document.getElementById('modal-details');
-            
-            // Combine total balance based on existing schema formats
-            const totalWallet = parseFloat(u.balance || 0) + parseFloat(u.loan_wallet || 0);
-            
-            details.innerHTML = `
-                <div class="detail-row"><label>Main Wallet</label><span>₦${totalWallet.toLocaleString()}</span></div>
-                <div class="detail-row"><label>Loan Balance</label><span>₦${parseFloat(u.loan_balance || 0).toLocaleString()}</span></div>
-                <div class="detail-row"><label>Phone</label><span>${u.phone}</span></div>
-                <div class="detail-row"><label>Email</label><span>${u.email || 'N/A'}</span></div>
-                <div class="detail-row"><label>Streak</label><span>${u.loan_days || 0}/30 Days</span></div>
-                <div class="detail-row"><label>Joined</label><span>${new Date(u.created_at).toDateString()}</span></div>
-            `;
-            document.getElementById('userModal').style.display = 'flex';
+        async function sendSms(phone, msg) {
+            try {
+                fetch(`${SUPABASE_URL}/functions/v1/Sms`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                    body: JSON.stringify({ phone, message: msg })
+                });
+            } catch(e) { console.error("SMS skip", e); }
         }
-
-        // --- CORE APPROVAL LOGIC ---
-
-        async function approvePendingCash(contribId, userId, amount, phone) {
-            if(!confirm(`Confirm receiving ₦${amount.toLocaleString()} in cash?`)) return;
-
-            // 1. Get user's current wallet balance
-            const { data: p } = await client.from('profiles').select('loan_wallet').eq('id', userId).single();
-            const newBal = parseFloat(p.loan_wallet || 0) + parseFloat(amount);
-
-            // 2. Update their wallet balance
-            await client.from('profiles').update({ loan_wallet: newBal }).eq('id', userId);
-            
-            // 3. Update the contribution status to 'approved'
-            await client.from('contributions').update({ status: 'approved' }).eq('id', contribId);
-
-            // 4. Send SMS Notification
-            if (phone) {
-                const msg = `Zoe Network: Your cash payment of ₦${amount} has been verified. New Contribution Balance: ₦${newBal}.`;
-                const smsUrl = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${phone}&message=${encodeURIComponent(msg)}&gateway=2`;
-                fetch("https://corsproxy.io/?" + encodeURIComponent(smsUrl)).catch(e => console.log("SMS Error", e));
-            }
-
-            alert("Payment Verified Successfully.");
-            loadAdminData(); // Refresh UI
-        }
-
-        async function approveLoan(id) {
-            if(confirm("Mark loan as approved and paid?")) {
-                const { error } = await client.from('loan_requests').update({ status: 'approved' }).eq('id', id);
-                if(!error) { 
-                    alert("Loan Approved, Boss!"); 
-                    loadAdminData(); 
-                } else {
-                    alert("Error approving loan.");
-                }
-            }
-        }
-
-        // --- NAVIGATION & UTILS ---
-
-        function nav(section, btn) {
-            currentTab = section;
-
-            document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
-            document.getElementById(section + '-view').style.display = 'block';
-            
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // Notification clearing logic
-            if (section === 'verify') {
-                knownVerifyCount = pendingVerifyCount;
-                document.getElementById('badge-verify').style.display = 'none';
-            } else if (section === 'loans') {
-                knownLoansCount = pendingLoansCount;
-                document.getElementById('badge-loans').style.display = 'none';
-            }
-        }
-
-        function closeModal() { document.getElementById('userModal').style.display = 'none'; }
     </script>
 </body>
 </html>
