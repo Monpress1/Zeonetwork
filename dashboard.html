@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Zoe Network | Dashboard</title>
+    <title>Zoe Network | Premium Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://js.paystack.co/v1/inline.js"></script>
@@ -18,69 +18,94 @@
             --text-gray: #888888;
             --white: #ffffff;
             --danger: #ff3b30;
+            --warning: #ff9500;
+            --glass: rgba(255, 255, 255, 0.7);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 90px; color: var(--text-dark); overflow-x: hidden; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 110px; color: var(--text-dark); overflow-x: hidden; }
 
-        /* OPay Style Header */
+        /* Header Style */
         .header {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            padding: 25px 20px 70px 20px;
-            color: var(--white);
-            border-bottom-left-radius: 25px;
-            border-bottom-right-radius: 25px;
+            padding: 25px 20px 80px 20px; color: var(--white);
+            border-bottom-left-radius: 30px; border-bottom-right-radius: 30px;
         }
         .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .user-info { display: flex; align-items: center; gap: 12px; }
-        .avatar { width: 45px; height: 45px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); object-fit: cover; background: #eee; }
-        .user-name h1 { margin: 0; font-size: 18px; font-weight: 700; }
+        .avatar-top { width: 42px; height: 42px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); object-fit: cover; }
         
         .balance-section { text-align: center; }
-        .balance-amount { font-size: 38px; font-weight: 800; margin: 5px 0; }
+        .balance-amount { font-size: 40px; font-weight: 800; margin: 5px 0; letter-spacing: -1px; }
+        .interest-tag { font-size: 11px; background: rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 20px; display: inline-block; font-weight: 600; }
 
-        /* Action Grid */
+        /* Action Buttons */
         .action-card {
-            background: var(--white); width: 90%; margin: -40px auto 20px auto;
-            padding: 20px; border-radius: 20px; display: grid;
-            grid-template-columns: 1fr 1fr 1fr; gap: 10px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.06); position: relative; z-index: 10;
+            background: var(--white); width: 90%; margin: -45px auto 20px auto;
+            padding: 20px; border-radius: 24px; display: grid;
+            grid-template-columns: 1fr 1fr; gap: 15px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08); position: relative; z-index: 10;
         }
         .action-btn { background: none; border: none; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-        .action-icon { width: 50px; height: 50px; border-radius: 15px; display: flex; justify-content: center; align-items: center; font-size: 20px; margin-bottom: 8px; }
+        .action-icon { width: 52px; height: 52px; border-radius: 18px; display: flex; justify-content: center; align-items: center; font-size: 22px; margin-bottom: 8px; transition: 0.2s; }
+        .action-btn:active .action-icon { transform: scale(0.9); }
         .icon-add { background: #e6f7f1; color: var(--primary); }
-        .icon-withdraw { background: #fff0eb; color: #ff6b35; }
-        .icon-force { background: #ffeeee; color: var(--danger); }
-        .action-btn span { font-size: 11px; font-weight: 700; color: #444; }
+        .icon-withdraw { background: #fff1f0; color: var(--danger); }
+        .action-btn span { font-size: 13px; font-weight: 700; color: #444; }
 
-        /* Section Styling */
+        /* Main Sections */
         .section { padding: 0 20px; margin-top: 25px; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .section-title { font-size: 15px; font-weight: 800; }
-        .card-stat { background: white; padding: 15px; border-radius: 15px; display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
-        .circle-progress { width: 50px; height: 50px; border-radius: 50%; border: 4px solid #f0f4f3; border-top: 4px solid var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--primary); margin-right: 15px; }
+        
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .progress-meta { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+        .bar-bg { height: 10px; background: #f0f0f0; border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: 1.5s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
 
-        /* Sidebar */
-        .sidebar { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: white; z-index: 1001; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.1); padding-top: 50px; }
-        .sidebar.open { right: 0; }
-        .sidebar-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; font-weight: 600; color: var(--text-dark); text-decoration: none; border-bottom: 1px solid #f9f9f9; }
-        .sidebar-item i { color: var(--primary); width: 20px; text-align: center; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; }
+        /* Recent Activities */
+        .activity-item { display: flex; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid #f5f5f5; }
+        .activity-item:last-child { border-bottom: none; }
+        .activity-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .activity-details { flex: 1; }
+        .activity-name { font-size: 13px; font-weight: 700; margin: 0; }
+        .activity-date { font-size: 11px; color: var(--text-gray); }
+        .activity-val { font-size: 13px; font-weight: 800; }
+
+        /* SIDEBAR */
+        .sidebar { position: fixed; top: 0; left: -100%; width: 85%; max-width: 320px; height: 100%; background: white; z-index: 2000; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); padding: 40px 0; }
+        .sidebar.open { left: 0; }
+        .sidebar-header { text-align: center; padding: 0 20px 30px; }
+        .avatar-large { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid #f0f0f0; margin-bottom: 15px; }
+        .sidebar-name { font-size: 20px; font-weight: 800; margin: 0; color: #333; }
+        
+        .menu-list { list-style: none; padding: 10px 0; margin: 0; }
+        .menu-item { padding: 16px 30px; display: flex; align-items: center; gap: 18px; color: #444; text-decoration: none; font-weight: 600; font-size: 15px; transition: 0.2s; }
+        .menu-item i { font-size: 20px; color: var(--primary); width: 25px; text-align: center; }
+        .menu-item:active { background: #f4fdf9; color: var(--primary); }
+
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; z-index: 1900; }
+
+        /* Bottom Nav Glassmorphism */
+        .bottom-nav { 
+            position: fixed; bottom: 20px; left: 5%; width: 90%; 
+            background: var(--glass); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            display: flex; justify-content: space-around; padding: 12px 0; 
+            border-radius: 25px; border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1); z-index: 1000;
+        }
+        .nav-item { text-align: center; color: #888; font-size: 10px; text-decoration: none; font-weight: 700; flex: 1; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 18px; margin-bottom: 4px; display: block; }
 
         /* Modals */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 4000; justify-content: center; align-items: flex-end; }
-        .modal-content { background: white; padding: 25px; width: 100%; border-radius: 25px 25px 0 0; animation: slideUp 0.3s ease; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 3000; justify-content: center; align-items: flex-end; }
+        .modal-content { background: white; padding: 25px; width: 100%; border-radius: 30px 30px 0 0; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .input-pay { width: 100%; padding: 15px; font-size: 18px; border: 1px solid #eee; border-radius: 12px; margin-bottom: 15px; outline: none; }
-        .btn-main { width: 100%; padding: 16px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+        .input-pay { width: 100%; padding: 16px; font-size: 16px; border: 1.5px solid #eee; border-radius: 14px; margin-bottom: 15px; outline: none; transition: 0.3s; }
+        .btn-main { width: 100%; padding: 18px; border-radius: 16px; border: none; font-weight: 800; cursor: pointer; margin-bottom: 10px; font-size: 15px; }
         .btn-green { background: var(--primary); color: white; }
-        .btn-red { background: #fff1f0; color: var(--danger); }
-
-        /* Bottom Nav */
-        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
-        .nav-item { text-align: center; color: #bbb; font-size: 10px; text-decoration: none; }
-        .nav-item.active { color: var(--primary); }
-        .nav-icon { font-size: 20px; margin-bottom: 4px; display: block; }
+        .btn-gray { background: #f4f5f7; color: var(--text-dark); }
     </style>
 </head>
 <body>
@@ -88,292 +113,287 @@
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
 
     <div class="sidebar" id="sidebar">
-        <div style="text-align:center; padding-bottom: 20px;">
-            <img src="" id="menuAvatar" class="avatar" style="width:80px; height:80px;">
-            <h3 id="menuName" style="margin:10px 0 5px;">User</h3>
+        <div class="sidebar-header">
+            <img src="" id="menuAvatar" class="avatar-large">
+            <h2 id="menuName" class="sidebar-name">User</h2>
         </div>
-        <a href="dashboard.html" class="sidebar-item"><i class="fas fa-home"></i> Home</a>
-        <a href="profile.html" class="sidebar-item"><i class="fas fa-id-card"></i> My Identity</a>
-        <a href="loan.html" class="sidebar-item"><i class="fas fa-money-bill-wave"></i> Apply for Loan</a>
-        <a href="contributions.html" class="sidebar-item"><i class="fas fa-calendar-check"></i> Daily Contribution</a>
-        <a href="history.html" class="sidebar-item"><i class="fas fa-list-ul"></i> Transactions</a>
-        <a href="support.html" class="sidebar-item"><i class="fas fa-headset"></i> Support Chat</a>
-        <a href="#" class="sidebar-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        <nav class="menu-list">
+            <a href="dashboard.html" class="menu-item"><i class="fa fa-home"></i> Home</a>
+            <a href="profile.html" class="menu-item"><i class="fa fa-id-card"></i> My Identity</a>
+            <a href="loan.html" class="menu-item"><i class="fa fa-money-bill-transfer"></i> Apply for Loan</a>
+            <a href="history.html" class="menu-item"><i class="fa fa-list-ul"></i> Transactions</a>
+            <a href="support.html" class="menu-item"><i class="fa fa-headset"></i> Support Chat</a>
+            <a href="#" class="menu-item" onclick="logout()" style="color:var(--danger);"><i class="fa fa-sign-out-alt" style="color:var(--danger);"></i> Logout</a>
+        </nav>
     </div>
 
     <div class="header">
         <div class="top-bar">
             <div class="user-info">
-                <img src="" class="avatar" id="mainAvatar">
-                <div class="user-name">
-                    <span style="font-size:12px; opacity:0.8;">Welcome back,</span>
-                    <h1 id="userName">User</h1>
+                <img src="" class="avatar-top" id="mainAvatar" onclick="toggleMenu()">
+                <div>
+                    <span style="font-size:10px; opacity:0.8; font-weight:600;">Welcome back,</span>
+                    <h1 id="userName" style="margin:0; font-size:16px; font-weight:800;">User</h1>
                 </div>
             </div>
-            <i class="fas fa-bars" style="font-size:24px;" onclick="toggleMenu()"></i>
+            <div onclick="toggleMenu()" style="background:rgba(255,255,255,0.15); width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center;">
+                <i class="fa fa-bars-staggered" style="font-size:20px;"></i>
+            </div>
         </div>
         <div class="balance-section">
-            <div style="font-size:12px; opacity:0.9;">Wallet Balance <i class="fas fa-lock" style="font-size:10px;"></i></div>
+            <div style="font-size:11px; opacity:0.9; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Wallet Balance</div>
             <div class="balance-amount" id="walletBal">₦0.00</div>
+            <div class="interest-tag"><i class="fa fa-arrow-trend-up"></i> + ₦<span id="interestDisplay">0.00</span> Interest</div>
         </div>
     </div>
 
     <div class="action-card">
         <button class="action-btn" onclick="openModal('topupModal')">
-            <div class="action-icon icon-add"><i class="fas fa-plus-circle"></i></div>
+            <div class="action-icon icon-add"><i class="fa fa-plus-circle"></i></div>
             <span>Add Money</span>
         </button>
-        <button class="action-btn" onclick="alert('Standard withdrawal is for matured accounts only.')">
-            <div class="action-icon icon-withdraw"><i class="fas fa-university"></i></div>
+        <button class="action-btn" onclick="checkWithdrawalStatus()">
+            <div class="action-icon icon-withdraw"><i class="fa fa-building-columns"></i></div>
             <span>Withdraw</span>
         </button>
-        <button class="action-btn" onclick="openModal('forceWithdrawModal')">
-            <div class="action-icon icon-force"><i class="fas fa-bolt"></i></div>
-            <span>Force Out</span>
-        </button>
-    </div>
-
-    <div class="section">
-        <div class="section-title">Loan Eligibility Progress</div>
-        <div class="card-stat">
-            <div class="circle-progress" id="daysCircle">0</div>
-            <div>
-                <div style="font-size:14px; font-weight:700;">Contribution Days</div>
-                <div style="font-size:12px; color:var(--text-gray);">Saved: ₦<span id="savingsTotal">0.00</span></div>
-            </div>
-        </div>
     </div>
 
     <div class="section">
         <div class="section-header">
-            <div class="section-title">Daily Tick</div>
-            <a href="contributions.html" style="font-size:12px; color:var(--primary); font-weight:700;">View Calendar <i class="fas fa-chevron-right"></i></a>
+            <div class="section-title">Savings Maturity (365 Days)</div>
         </div>
-        <div class="card-stat" style="justify-content: space-between;">
-            <div>
-                <div style="font-size:14px; font-weight:700;">Today's Contribution</div>
-                <div style="font-size:12px; color:var(--text-gray);">Pay today's contribution to keep streak</div>
+        <div class="card">
+            <div class="progress-meta">
+                <span id="progressPercent" style="color:var(--primary)">0% Completed</span>
+                <span id="daysCounter">0 / 365 Days</span>
             </div>
-            <button class="btn-main btn-green" style="width:auto; margin:0; padding:10px 20px;" onclick="window.location='contributions.html'">Tick</button>
+            <div class="bar-bg">
+                <div class="bar-fill" id="progressBar"></div>
+            </div>
+            <p style="font-size: 11px; color: var(--text-gray); margin-top: 15px; line-height: 1.5;">
+                <i class="fa fa-circle-info"></i> Funds are locked for 1 year. Early withdrawal resets progress and incurs a 10% capital charge.
+            </p>
+        </div>
+    </div>
+
+    <div class="section" style="margin-bottom: 30px;">
+        <div class="section-header">
+            <div class="section-title">Recent Activities</div>
+            <a href="history.html" style="font-size:12px; color:var(--primary); font-weight:700; text-decoration:none;">View All</a>
+        </div>
+        <div class="card" id="activityList">
+            <p style="text-align:center; color:#999; font-size:12px; margin:10px 0;">No recent transactions</p>
+        </div>
+    </div>
+
+    <div class="modal" id="withdrawModal">
+        <div class="modal-content">
+            <h3 style="text-align:center; margin-top:0;">Withdraw Funds</h3>
+            <div id="payoutCalc" style="background:#f8f9fb; padding:15px; border-radius:15px; margin-bottom:15px;">
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;">
+                    <span>Wallet Balance:</span> <b id="wBal">₦0</b>
+                </div>
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;">
+                    <span id="pLabel">Interest:</span> <b id="pVal" style="color:var(--primary);">+ ₦0</b>
+                </div>
+                <hr style="border:none; border-top:1px solid #eee;">
+                <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800;">
+                    <span>Total Payout:</span> <b id="totalPayout" style="color:var(--text-dark);">₦0</b>
+                </div>
+            </div>
+            <div id="penaltyWarning" style="background:#fff1f0; color:var(--danger); padding:12px; border-radius:12px; font-size:11px; margin-bottom:15px; display:none; font-weight:600;">
+                <i class="fa fa-triangle-exclamation"></i> Early Withdrawal: 10% capital penalty applied. Savings will reset to 0.
+            </div>
+            <input type="text" id="bankName" class="input-pay" placeholder="Bank Name">
+            <input type="text" id="accNum" class="input-pay" placeholder="Account Number">
+            <input type="text" id="accName" class="input-pay" placeholder="Account Name">
+            <button class="btn-main btn-green" onclick="processWithdrawal()">Confirm & Reset Savings</button>
+            <button class="btn-main" style="background:none;" onclick="closeModal('withdrawModal')">Close</button>
         </div>
     </div>
 
     <div class="modal" id="topupModal">
         <div class="modal-content">
-            <h3 style="text-align:center;">Top Up & Tick</h3>
+            <h3 style="text-align:center; margin-top:0;">Top Up Account</h3>
             <input type="number" id="topupAmount" class="input-pay" placeholder="Amount (₦)">
-            <button class="btn-main btn-green" onclick="payWithPaystack()">Pay Now</button>
-            <button class="btn-main btn-red" onclick="closeModal('topupModal')">Cancel</button>
+            <button class="btn-main btn-green" onclick="payWithPaystack()">Pay Now (Card)</button>
+            <button class="btn-main btn-gray" onclick="submitCashPayment()">I Paid Cash</button>
+            <button class="btn-main" style="background:none;" onclick="closeModal('topupModal')">Cancel</button>
         </div>
     </div>
 
-    <div class="modal" id="forceWithdrawModal">
-        <div class="modal-content">
-            <h3 style="text-align:center; color:var(--danger);"><i class="fas fa-exclamation-circle"></i> Force Withdraw</h3>
-            <p style="font-size:12px; text-align:center; color:#666; margin-bottom:15px;">
-                A <b>10% service charge</b> applies to emergency withdrawals.
-            </p>
-            <input type="text" class="input-pay" placeholder="Account Number" id="accNum">
-            <input type="text" class="input-pay" placeholder="Bank Name" id="bankName">
-            <input type="text" class="input-pay" placeholder="Account Name" id="accName">
-            <button class="btn-main btn-green" onclick="handleForceWithdraw()">Submit Request</button>
-            <button class="btn-main" onclick="closeModal('forceWithdrawModal')">Close</button>
-        </div>
-    </div>
-
-    <div class="bottom-nav">
-        <a href="dashboard.html" class="nav-item active"><i class="fas fa-home nav-icon"></i>Home</a>
-        <a href="loan.html" class="nav-item"><i class="fas fa-comment-dollar nav-icon"></i>Loan</a>
-        <a href="history.html" class="nav-item"><i class="fas fa-history nav-icon"></i>History</a>
-        <a href="#" class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a>
-    </div>
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item active"><i class="fa fa-house nav-icon"></i>Home</a>
+        <a href="history.html" class="nav-item"><i class="fa fa-clock-rotate-left nav-icon"></i>History</a>
+        <a href="loan.html" class="nav-item"><i class="fa fa-hand-holding-dollar nav-icon"></i>Loan</a>
+        <a href="#" onclick="logout()" class="nav-item"><i class="fa fa-right-from-bracket nav-icon"></i>Logout</a>
+    </nav>
 
     <script>
-      const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let user = JSON.parse(localStorage.getItem('zoe_user'));
-    let profile = null;
+        let user = JSON.parse(localStorage.getItem('zoe_user'));
+        let profile = null;
+        let earnedInterest = 0;
+        const INTEREST_RATE = 0.10;
 
-    window.onload = async () => {
-        if (!user) { window.location.href = 'index.html'; return; }
-        await loadProfile();
-    };
+        window.onload = async () => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            await loadData();
+        };
 
-    async function loadProfile() {
-    const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
-    if (data) {
-        profile = data;
-        document.getElementById('userName').innerText = data.full_name.split(' ')[0];
-        document.getElementById('menuName').innerText = data.full_name;
-        
-        const currentBalance = parseFloat(data.balance || 0);
-        document.getElementById('walletBal').innerText = `₦${currentBalance.toLocaleString()}`;
-        document.getElementById('savingsTotal').innerText = currentBalance.toLocaleString();
-        
-        document.getElementById('daysCircle').innerText = data.savings_days || 0;
-        
-        const avatar = data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.full_name)}&background=00b578&color=fff&bold=true`;
-        document.getElementById('mainAvatar').src = avatar;
-        document.getElementById('menuAvatar').src = avatar;
-
-        // 👇 ADD THIS LINE HERE 👇
-        enforceProfileCompletion(data);
-    }
-}
-
-    function toggleMenu() {
-        document.getElementById('sidebar').classList.toggle('open');
-        const overlay = document.getElementById('overlay');
-        overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
-    }
-
-    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-    function payWithPaystack() {
-        const amt = document.getElementById('topupAmount').value;
-        if (!amt || amt < 100) return alert("Min ₦100");
-
-        const handler = PaystackPop.setup({
-            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
-            email: profile.email || `${profile.phone}@zoe.com`,
-            amount: Math.round(amt * 100),
-            currency: "NGN",
-            callback: function(response) {
-                closeModal('topupModal');
-                syncToDatabase(amt);
+        async function loadData() {
+            const { data } = await client.from('profiles').select('*').eq('id', user.id).single();
+            if (data) {
+                profile = data;
+                updateUI(data);
+                loadActivities();
             }
-        });
-        handler.openIframe();
-    }
-
-    async function syncToDatabase(amt) {
-        const numericAmt = parseFloat(amt);
-        const newBal = parseFloat(profile.balance || 0) + numericAmt;
-        const newSavingsDays = parseInt(profile.savings_days || 0) + 1;
-
-        // FIX 2: Removed 'savings_balance' from this update object
-        const { error: profileErr } = await client.from('profiles').update({ 
-            balance: newBal,
-            savings_days: newSavingsDays
-        }).eq('id', user.id);
-
-        // 2. Insert into Contributions (Legit record of the transfer)
-        const { error: contribErr } = await client.from('contributions').insert([
-            { user_id: user.id, amount: numericAmt, status: 'approved' }
-        ]);
-
-        if (!profileErr && !contribErr) {
-            await triggerSMS(numericAmt, newBal);
-            alert(`₦${numericAmt.toLocaleString()} successful!`);
-            location.reload();
-        } else {
-            console.error("DB Error:", profileErr || contribErr);
-            alert("Database Sync Error. This usually means a column name is wrong or Permissions (RLS) are blocking the update.");
         }
-    }
 
-    async function triggerSMS(amt, total) {
-        const msg = `Zoe Network: ₦${amt} deposit successful. Your new balance is ₦${total}.`;
-        const url = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${profile.phone}&message=${encodeURIComponent(msg)}&gateway=2`;
-        
-        try {
-            await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
-        } catch (e) { console.error("SMS Failed", e); }
-    }
+        function updateUI(data) {
+            document.getElementById('userName').innerText = data.full_name.split(' ')[0];
+            document.getElementById('menuName').innerText = data.full_name;
+            const bal = parseFloat(data.balance || 0);
+            document.getElementById('walletBal').innerText = `₦${bal.toLocaleString()}`;
 
-    async function handleForceWithdraw() {
-        const bal = parseFloat(profile.balance);
-        const bank = document.getElementById('bankName').value;
-        const acc = document.getElementById('accNum').value;
+            const startDate = new Date(data.savings_start_date || data.created_at);
+            const daysPassed = Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24));
+            const progress = Math.min((daysPassed / 365) * 100, 100);
 
-        if (bal < 500) return alert("Insufficient balance.");
-        if (!bank || !acc) return alert("Please fill bank details.");
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressPercent').innerText = Math.floor(progress) + '% Completed';
+            document.getElementById('daysCounter').innerText = `${Math.min(daysPassed, 365)} / 365 Days`;
 
-        const charge = bal * 0.10;
-        const final = bal - charge;
+            earnedInterest = bal * INTEREST_RATE * (Math.min(daysPassed, 365) / 365);
+            document.getElementById('interestDisplay').innerText = earnedInterest.toLocaleString(undefined, {minimumFractionDigits: 2});
 
-        if (confirm(`Withdraw ₦${bal.toLocaleString()}? After 10% fee, you receive ₦${final.toLocaleString()}.`)) {
-            // FIX 3: Using 'guarantor' columns to store bank info as a workaround for your schema
-            const { error } = await client.from('loans').insert([{
+            const avatar = data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.full_name)}&background=00b578&color=fff&bold=true`;
+            document.getElementById('mainAvatar').src = avatar;
+            document.getElementById('menuAvatar').src = avatar;
+        }
+
+        function checkWithdrawalStatus() {
+            const startDate = new Date(profile.savings_start_date || profile.created_at);
+            const daysPassed = Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24));
+            const bal = parseFloat(profile.balance || 0);
+            document.getElementById('wBal').innerText = `₦${bal.toLocaleString()}`;
+
+            if (daysPassed < 365) {
+                const penalty = bal * 0.1;
+                const total = bal - penalty;
+                document.getElementById('pLabel').innerText = "Early Penalty (10%):";
+                document.getElementById('pVal').innerText = `- ₦${penalty.toLocaleString()}`;
+                document.getElementById('pVal').style.color = "var(--danger)";
+                document.getElementById('totalPayout').innerText = `₦${total.toLocaleString()}`;
+                document.getElementById('penaltyWarning').style.display = 'block';
+            } else {
+                const total = bal + earnedInterest;
+                document.getElementById('pLabel').innerText = "Interest Earned:";
+                document.getElementById('pVal').innerText = `+ ₦${earnedInterest.toLocaleString()}`;
+                document.getElementById('pVal').style.color = "var(--primary)";
+                document.getElementById('totalPayout').innerText = `₦${total.toLocaleString()}`;
+                document.getElementById('penaltyWarning').style.display = 'none';
+            }
+            openModal('withdrawModal');
+        }
+
+        async function processWithdrawal() {
+            const bank = document.getElementById('bankName').value;
+            const acc = document.getElementById('accNum').value;
+            const name = document.getElementById('accName').value;
+            if (!bank || !acc || !name) return alert("Fill bank details");
+
+            // 1. Submit Withdrawal Request
+            const { error: withdrawErr } = await client.from('withdrawals').insert([{
                 user_id: user.id,
-                amount: final,
-                status: 'force_withdraw_pending',
-                guarantor_name: bank,
-                guarantor_phone: acc
+                amount: profile.balance,
+                bank_name: bank,
+                account_number: acc,
+                account_name: name,
+                status: 'pending'
             }]);
 
-            if (!error) {
-                alert("Force withdrawal request sent!");
-                closeModal('forceWithdrawModal');
+            if (!withdrawErr) {
+                // 2. RESET SAVINGS AND DATE TO ZERO/NOW
+                const { error: resetErr } = await client.from('profiles').update({
+                    balance: 0,
+                    savings_start_date: new Date().toISOString()
+                }).eq('id', user.id);
+
+                if (!resetErr) {
+                    await triggerBackendSMS(`Zoe: Withdrawal request received. Your savings have been reset to 0.`);
+                    alert("Success! Your withdrawal request is being processed");
+                    location.reload();
+                }
             }
         }
-    }
-    function enforceProfileCompletion(profileData) {
-    // 1. Check if profile is complete
-    const isProfileComplete = profileData.address && profileData.nin && profileData.email; 
-    
-    // 2. Check if we have already shown this prompt before
-    const hasBeenPrompted = localStorage.getItem('zoe_profile_prompted');
 
-    // If it's complete OR they've already seen the popup once, STOP here.
-    if (isProfileComplete || hasBeenPrompted) return; 
+        async function loadActivities() {
+            const { data: contribs } = await client.from('contributions').select('*').eq('user_id', user.id).order('created_at', {ascending: false}).limit(3);
+            const list = document.getElementById('activityList');
+            if (contribs && contribs.length > 0) {
+                list.innerHTML = contribs.map(c => `
+                    <div class="activity-item">
+                        <div class="activity-icon" style="background:${c.status === 'approved' ? '#e6f7f1' : '#fff8e6'}; color:${c.status === 'approved' ? 'var(--primary)' : 'var(--warning)'}">
+                            <i class="fa ${c.status === 'approved' ? 'fa-check' : 'fa-clock'}"></i>
+                        </div>
+                        <div class="activity-details">
+                            <p class="activity-name">Deposit via ${c.type.toUpperCase()}</p>
+                            <p class="activity-date">${new Date(c.created_at).toLocaleDateString()}</p>
+                        </div>
+                        <div class="activity-val" style="color:var(--primary)">+ ₦${c.amount.toLocaleString()}</div>
+                    </div>
+                `).join('');
+            }
+        }
 
-    // 3. If we reached here, it's their first time. Set the flag immediately 
-    // so it never pops up again on this device.
-    localStorage.setItem('zoe_profile_prompted', 'true');
+        function payWithPaystack() {
+            const amt = document.getElementById('topupAmount').value;
+            if (!amt || amt < 100) return alert("Min ₦100");
+            const handler = PaystackPop.setup({
+                key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+                email: profile.email || `${profile.phone}@zoe.com`,
+                amount: Math.round(amt * 100),
+                currency: "NGN",
+                callback: (res) => syncToDatabase(amt)
+            });
+            handler.openIframe();
+        }
 
-    // --- GLASS MORPHISM UI ---
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.4); 
-        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-        z-index: 9999; display: flex; align-items: center; justify-content: center;
-        padding: 20px; box-sizing: border-box;
-    `;
+        async function syncToDatabase(amt) {
+            const newBal = parseFloat(profile.balance || 0) + parseFloat(amt);
+            await client.from('profiles').update({ balance: newBal }).eq('id', user.id);
+            await client.from('contributions').insert([{ user_id: user.id, amount: amt, status: 'approved', type: 'paystack' }]);
+            location.reload();
+        }
 
-    if (!document.getElementById('glass-anim')) {
-        const style = document.createElement('style');
-        style.id = 'glass-anim';
-        style.innerHTML = `@keyframes glassPop { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`;
-        document.head.appendChild(style);
-    }
+        async function submitCashPayment() {
+            const amt = document.getElementById('topupAmount').value;
+            await client.from('contributions').insert([{ user_id: user.id, amount: amt, status: 'pending', type: 'cash' }]);
+            alert("Pending approval!");
+            closeModal('topupModal');
+        }
 
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        background: rgba(255, 255, 255, 0.75);
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        border-radius: 30px; padding: 40px 25px;
-        width: 100%; max-width: 340px; text-align: center;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        animation: glassPop 0.5s ease-out;
-    `;
+        async function triggerBackendSMS(msg) {
+            try { fetch(`https://bvnivavjmrmfnagwqvxc.supabase.co/functions/v1/Sms`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
+                body: JSON.stringify({ phone: profile.phone, message: msg })
+            }); } catch (e) {}
+        }
 
-    modal.innerHTML = `
-        <div style="background: var(--primary); color: white; width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 20px; transform: rotate(-10deg); box-shadow: 0 10px 20px rgba(0,181,120,0.3);">
-            <i class="fas fa-user-check"></i>
-        </div>
-        <h2 style="margin: 0 0 10px; font-size: 22px; color: #1a1a1a; font-weight: 800; letter-spacing: -0.5px;">Setup Identity</h2>
-        <p style="margin: 0 0 30px; font-size: 14px; color: #444; line-height: 1.5; font-weight: 500;">
-            To access all features and protect your funds, please finish setting up your profile.
-        </p>
-        <button onclick="window.location.href='profile.html'" style="background: #1a1a1a; color: white; border: none; padding: 18px; width: 100%; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
-            Complete Profile
-        </button>
-    `;
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+        }
 
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
-    document.body.style.overflow = 'hidden';
-}
-
-    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
-    
-  
-  </script
-  ></body>
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+    </script>
+</body>
 </html>

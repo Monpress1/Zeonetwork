@@ -1,287 +1,940 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Zoe Network | Loan Portal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Network | Loan Wallet Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    
+    <style>
+        :root {
+            --primary: #00b578;
+            --primary-dark: #009663;
+            --bg-color: #f4f5f7;
+            --text-dark: #1a1a1a;
+            --text-gray: #888888;
+            --white: #ffffff;
+            --danger: #ff3b30;
+            --warning: #ff9500;
+            --shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-<script src="https://js.paystack.co/v1/inline.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            margin: 0;
+            padding-bottom: 100px;
+            color: var(--text-dark);
+            overflow-x: hidden;
+        }
 
-<style>
-:root{
---primary:#00b578;
---primary-dark:#009663;
---bg:#f4f5f7;
---white:#fff;
---text:#1a1a1a;
---gray:#888;
---danger:#ff3b30;
-}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);padding-bottom:90px;color:var(--text);}
-.header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:25px 20px 70px;color:white;border-bottom-left-radius:25px;border-bottom-right-radius:25px;text-align:center;}
-.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
-.back-btn{color:white;text-decoration:none;font-size:20px;}
-.limit-amount{font-size:34px;font-weight:800;margin-top:5px;}
-.main-card{background:white;width:90%;margin:-40px auto 20px;padding:20px;border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,0.06);}
-.btn-add-loan{background:#e6f7f1;color:var(--primary);border:2px dashed var(--primary);width:100%;padding:15px;border-radius:15px;font-weight:700;display:flex;justify-content:center;align-items:center;gap:10px;cursor:pointer;margin-bottom:20px;}
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;text-align:center;}
-.stat-box{background:#f9f9f9;padding:12px;border-radius:12px;}
-.stat-box b{display:block;font-size:18px;color:var(--primary);}
-.stat-box span{font-size:10px;color:var(--gray);text-transform:uppercase;font-weight:700;}
-.section{padding:0 20px;}
-.rules-card{background:white;padding:15px;border-radius:15px;margin-bottom:20px;}
-.rules-card ul{margin:0;padding-left:20px;font-size:12px;color:#555;line-height:1.8;}
-.input-pay{width:100%;padding:15px;font-size:16px;border:1px solid #eee;border-radius:12px;margin-bottom:12px;outline:none;}
-.calc-row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #f4f4f4;}
-.btn-main{width:100%;padding:16px;border-radius:12px;border:none;font-weight:700;cursor:pointer;margin-top:10px;font-size:16px;}
-.btn-green{background:var(--primary);color:white;}
-.btn-green:disabled{background:#ccc;}
-.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:4000;justify-content:center;align-items:flex-end;}
-.modal-content{background:white;padding:25px;width:100%;border-radius:25px 25px 0 0;}
-.bottom-nav{position:fixed;bottom:0;width:100%;background:white;display:flex;justify-content:space-around;padding:12px 0 25px;box-shadow:0 -5px 15px rgba(0,0,0,0.05);}
-.nav-item{text-align:center;color:#bbb;font-size:10px;text-decoration:none;}
-.nav-item.active{color:var(--primary);}
-.nav-icon{font-size:20px;margin-bottom:4px;display:block;}
-</style>
+        /* Navigation */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--primary);
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .user-welcome { display: flex; align-items: center; gap: 10px; }
+        .profile-img { width: 35px; height: 35px; border-radius: 50%; border: 2px solid white; object-fit: cover; }
+
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: white;
+            z-index: 5000;
+            transition: 0.3s;
+            padding: 30px 20px;
+            box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+        }
+        .sidebar.active { left: 0; }
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 4999;
+            display: none;
+        }
+
+        /* Header UI */
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            padding: 20px 20px 80px 20px;
+            color: var(--white);
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+            text-align: center;
+        }
+        .balance-label { font-size: 12px; opacity: 0.9; text-transform: uppercase; letter-spacing: 1px; }
+        .balance-amount { font-size: 38px; font-weight: 800; margin: 5px 0; }
+
+        /* Action Cards */
+        .action-card {
+            background: var(--white);
+            width: 90%;
+            margin: -50px auto 25px auto;
+            padding: 20px;
+            border-radius: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            box-shadow: var(--shadow);
+            position: relative;
+            z-index: 10;
+        }
+
+        .action-btn {
+            background: #f9f9f9;
+            border: 1.5px solid #eee;
+            border-radius: 18px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .action-btn:active { transform: scale(0.95); }
+        .action-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .icon-save { background: #e6f7f1; color: var(--primary); }
+        .icon-loan { background: #fff8e6; color: var(--warning); }
+
+        /* Sections & Cards */
+        .section { padding: 0 20px; }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            margin-bottom: 20px;
+        }
+        .card-title { font-size: 14px; font-weight: 700; margin-bottom: 15px; color: var(--text-gray); display: block; }
+
+        /* Progress Bar */
+        .progress-container { margin: 15px 0; }
+        .progress-meta { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+        .bar-bg { height: 12px; background: #eee; border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: 1s ease-in-out; }
+
+        /* Loan Repayment UI */
+        .repayment-box {
+            background: #fff5f5;
+            border: 1px dashed var(--danger);
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        .penalty-badge {
+            background: var(--danger);
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            float: right;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 6000;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            width: 100%;
+            border-radius: 30px 30px 0 0;
+            animation: slideUp 0.3s ease-out;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .input-group { margin-bottom: 15px; }
+        .input-label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; color: #555; }
+        .input-pay {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            border: 2px solid #f0f0f0;
+            border-radius: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-pay:focus { border-color: var(--primary); background: #f9fff9; }
+
+        /* Buttons */
+        .btn-main {
+            width: 100%;
+            padding: 18px;
+            border-radius: 16px;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+            margin-bottom: 10px;
+        }
+        .btn-green { background: var(--primary); color: white; }
+        .btn-green:disabled { background: #ccc; }
+        .btn-gray { background: #f4f5f7; color: var(--text-dark); }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0 30px;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+            z-index: 2000;
+        }
+        .nav-item { text-align: center; color: #bbb; font-size: 11px; text-decoration: none; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 22px; margin-bottom: 4px; display: block; }
+    </style>
 </head>
 <body>
 
-<div class="header">
-<div class="top-bar">
-<a href="dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i></a>
-<span style="font-weight:700;">Loan Center</span>
-<div style="width:20px;"></div>
-</div>
-<div>
-<div style="font-size:12px;opacity:0.9;">Available Loan Limit (3x)</div>
-<div class="limit-amount" id="maxLoanDisplay">₦0.00</div>
-</div>
-</div>
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMenu()"></div>
+    
+    <div class="sidebar" id="sidebar">
+        <div style="text-align:center;">
+            <img src="" id="menuProfilePic" class="profile-img" style="width:70px; height:70px;">
+            <h3 id="menuUserName" style="margin: 15px 0 5px;">Zoe Member</h3>
+            <p id="menuPhone" style="font-size:13px; color:var(--text-gray); margin:0;"></p>
+        </div>
+        <div style="margin-top:40px;">
+            <div class="action-btn" style="width:100%; flex-direction:row; gap:15px; margin-bottom:10px;" onclick="window.location.href='dashboard.html'">
+                <i class="fas fa-th-large"></i> <span>Dashboard</span>
+            </div>
+            <div class="action-btn" style="width:100%; flex-direction:row; gap:15px; margin-bottom:10px;" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> <span>Sign Out</span>
+            </div>
+        </div>
+    </div>
 
-<div class="main-card">
-<button class="btn-add-loan" onclick="openModal('saveModal')">
-<i class="fas fa-plus-circle"></i> Daily Loan Contribution
+    <div class="top-nav">
+        <div class="user-welcome">
+            <img src="" id="topProfilePic" class="profile-img">
+            <div>
+                <span style="font-size:10px; opacity:0.8; display:block;">PRO ACCOUNT</span>
+                <b id="topUserName" style="font-size:14px;">Loading...</b>
+            </div>
+        </div>
+        <i class="fas fa-align-right menu-trigger" onclick="toggleMenu()" style="font-size:22px;"></i>
+    </div>
+
+    <div class="header">
+        <div class="balance-label">Available Savings</div>
+        <div class="balance-amount" id="loanBalDisplay">₦0.00</div>
+        <div id="eligibilityText" style="font-size:11px; background:rgba(0,0,0,0.1); padding:4px 12px; border-radius:20px; display:inline-block;">
+            30-Day Maturity Cycle
+        </div>
+    </div>
+
+    <div class="action-card">
+        <button class="action-btn" onclick="openModal('saveModal')">
+            <div class="action-icon icon-save"><i class="fas fa-plus"></i></div>
+            <span style="font-weight:700; font-size:12px;">Add Savings</span>
+        </button>
+        <button class="action-btn" onclick="startLoanWorkflow()">
+            <div class="action-icon icon-loan"><i class="fas fa-bolt"></i></div>
+            <span style="font-weight:700; font-size:12px;">Get 3x Loan</span>
+        </button>
+    </div>
+
+    <div class="section">
+        <div class="card">
+            <span class="card-title">SAVINGS PROGRESS</span>
+            <div class="progress-container">
+                <div class="progress-meta">
+                    <span id="daysCounter">0 / 30 Days</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="bar-bg"><div class="bar-fill" id="progressBar"></div></div>
+            </div>
+            <p id="maturityStatus" style="font-size:12px; color:var(--text-gray); margin:0;">Start saving to qualify for a loan.</p>
+        </div>
+
+        <div id="activeLoanSection" style="display:none;" class="card">
+            <span class="card-title" style="color:var(--danger)">ACTIVE LOAN REPAYMENT</span>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <div>
+                    <div style="font-size:11px; color:var(--text-gray);">Balance Outstanding</div>
+                    <div style="font-size:28px; font-weight:800;" id="repayAmtDisplay">₦0.00</div>
+                </div>
+                <div style="text-align:right;">
+                    <span id="loanDayBadge" style="background:#eee; padding:4px 10px; border-radius:10px; font-size:11px; font-weight:700;">Day 0/90</span>
+                </div>
+            </div>
+
+            <div class="repayment-box" id="dailyRepayBox">
+                <span id="penaltyLabel" class="penalty-badge" style="display:none;">LATE +10%</span>
+                <div style="font-size:12px; font-weight:700; color:#444;">Daily Amount Due Today:</div>
+                <div style="font-size:22px; font-weight:800; color:var(--text-dark); margin:5px 0;" id="dailyAmtText">₦0.00</div>
+                <p style="font-size:10px; color:#666; margin:0;">Includes base repayment + 20% future savings contribution.</p>
+                <button class="btn-main btn-green" onclick="handleDailyRepayment()">
+    Pay Today's Installment
 </button>
 
-<div class="stats-grid">
-<div class="stat-box">
-<b id="daysCount">0/30</b>
-<span>Streak Days</span>
-</div>
-<div class="stat-box">
-<b id="loanBalDisplay">₦0</b>
-<span>Loan Balance</span>
-</div>
-</div>
+            </div>
+        </div>
 
-<div id="statusTag" style="text-align:center;font-size:11px;font-weight:800;margin-top:15px;color:var(--danger);">
-<i class="fas fa-lock"></i> 30-DAY STREAK REQUIRED
+        <button class="btn-main" style="background:white; color:#444; border:1px solid #ddd; font-size:14px;" onclick="handleSavingsWithdrawal()">
+            <i class="fas fa-wallet" style="margin-right:8px;"></i> Withdraw Savings
+        </button>
+    </div>
+
+    <div class="modal" id="withdrawModal">
+        <div class="modal-content">
+            <h3 style="text-align:center; margin:0 0 20px;">Withdraw Funds</h3>
+            <div class="input-group">
+                <label class="input-label">AMOUNT (Max: <span id="withdrawableBal">₦0</span>)</label>
+                <input type="number" id="withdrawAmount" class="input-pay" placeholder="0.00">
+            </div>
+            <div class="input-group">
+                <label class="input-label">BANK NAME</label>
+                <input type="text" id="wBankName" class="input-pay" placeholder="e.g. GTBank">
+            </div>
+            <div class="input-group">
+                <label class="input-label">ACCOUNT NUMBER</label>
+                <input type="number" id="wAccNum" class="input-pay" placeholder="10 Digits">
+            </div>
+            <button class="btn-main btn-green" onclick="submitWithdrawalRequest()">Confirm Withdrawal</button>
+            <button class="btn-main btn-gray" onclick="closeModal('withdrawModal')">Cancel</button>
+        </div>
+    </div>
+    <div class="modal" id="saveModal">
+    <div class="modal-content">
+        <h3 style="text-align:center; margin-top:0;">Save for Loan</h3>
+        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">Minimum saving is ₦100</p>
+        <div class="input-group">
+            <label class="input-label">AMOUNT (₦)</label>
+            <input type="number" id="saveAmount" class="input-pay" placeholder="Enter Amount">
+        </div>
+        <button class="btn-main btn-green" onclick="payWithPaystack('savings')">Pay Now (Card)</button>
+        <button class="btn-main btn-gray" onclick="submitCashPayment('savings')">I Paid Cash</button>
+        <button class="btn-main" style="background:none;" onclick="closeModal('saveModal')">Cancel</button>
+    </div>
 </div>
-</div>
-
-<div class="section">
-<div class="rules-card">
-<div style="font-weight:800;font-size:14px;margin-bottom:8px;">
-<i class="fas fa-info-circle" style="color:var(--primary);"></i> How it works
-</div>
-<ul>
-<li>Save daily for 30 days to qualify.</li>
-<li>Borrow up to 3 times your Loan Balance.</li>
-<li>Repayment duration: 90 Days.</li>
-<li>10% Upfront Interest + ₦500 Security fee applies.</li>
-</ul>
-</div>
-
-<button class="btn-main btn-green" onclick="initiateLoanRequest()">Apply for Loan</button>
-</div>
-
-<!-- SAVE MODAL -->
-<div class="modal" id="saveModal">
-<div class="modal-content">
-<h3 style="text-align:center;">Daily Loan Contribution</h3>
-<input type="number" id="saveAmount" class="input-pay" placeholder="Amount (₦)">
-<button class="btn-main btn-green" onclick="processLoanContribution()">Pay Now</button>
-<button class="btn-main" onclick="closeModal('saveModal')">Cancel</button>
-</div>
-</div>
-
-<!-- APPLY MODAL -->
-<div class="modal" id="applyModal">
-<div class="modal-content">
-<h3>Loan Application</h3>
-<input type="number" id="requestAmount" class="input-pay" placeholder="Amount to borrow" oninput="calculateFees()">
-<input type="text" id="loanBank" class="input-pay" placeholder="Bank Name">
-<input type="text" id="loanAcc" class="input-pay" placeholder="Account Number">
-<div class="calc-row"><span>10% Interest</span><b id="intVal">₦0.00</b></div>
-<div class="calc-row"><span>Security Fee</span><b>₦500.00</b></div>
-<div class="calc-row" style="border:none;"><span>Pay Now</span><b id="totalPay" style="color:var(--primary);">₦0.00</b></div>
-<button class="btn-main btn-green" id="finalPayBtn" onclick="payInterestAndSubmit()">Pay & Apply</button>
-<button class="btn-main" onclick="closeModal('applyModal')">Back</button>
-</div>
-</div>
-
-<div class="bottom-nav">
-<a href="dashboard.html" class="nav-item"><i class="fas fa-home nav-icon"></i>Home</a>
-<a href="loan.html" class="nav-item active"><i class="fas fa-hand-holding-usd nav-icon"></i>Loan</a>
-<a href="history.html" class="nav-item"><i class="fas fa-receipt nav-icon"></i>History</a>
-</div>
-
-<script>
-
-    const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
-    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let user = JSON.parse(localStorage.getItem('zoe_user'));
-    let profile = null;
-
-    window.onload = async () => {
-        if (!user) { window.location.href = 'index.html'; return; }
-        await loadProfile();
-    };
-
-    async function loadProfile() {
-        const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
-        if (data) {
-            profile = data;
-            updateUI();
-        }
-    }
-
-    function updateUI() {
-        const bal = parseFloat(profile.loan_balance || 0);
-        const days = parseInt(profile.loan_days || 0);
-        document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
-        document.getElementById('daysCount').innerText = `${days}/30`;
-        document.getElementById('maxLoanDisplay').innerText = `₦${(bal * 3).toLocaleString()}`;
+<div class="modal" id="repayMethodModal">
+    <div class="modal-content">
+        <h3 style="text-align:center; margin-top:0;">Select Payment Method</h3>
+        <p style="text-align:center; font-size:13px; color:#666; margin-bottom:20px;">
+            Total Due: <b style="color:var(--primary);">₦<span id="repayAmtDisplay">0</span></b>
+        </p>
         
-        if (days >= 30) {
-            document.getElementById('statusTag').innerHTML = '<i class="fas fa-check-circle"></i> ELIGIBILITY UNLOCKED';
-            document.getElementById('statusTag').style.color = 'var(--primary)';
-        }
-    }
-
-    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-    // --- PART 1: DAILY CONTRIBUTION (MATCHES DASHBOARD TOPUP) ---
-    function processLoanContribution() {
-        const amt = document.getElementById('saveAmount').value;
-        if (!amt || amt < 100) return alert("Min ₦100");
-
-        const handler = PaystackPop.setup({
-            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
-            email: profile.email || `${profile.phone}@zoe.com`,
-            amount: Math.round(amt * 100),
-            currency: "NGN",
-            callback: function(response) {
-                closeModal('saveModal');
-                syncLoanContribution(amt);
-            }
-        });
-        handler.openIframe();
-    }
-
-    async function syncLoanContribution(amt) {
-        const numericAmt = parseFloat(amt);
-        const newLoanBal = parseFloat(profile.loan_balance || 0) + numericAmt;
-        const newLoanDays = parseInt(profile.loan_days || 0) + 1;
-
-        // 1. Update Profile (loan_balance and loan_days)
-        const { error: profileErr } = await client.from('profiles').update({ 
-            loan_balance: newLoanBal,
-            loan_days: newLoanDays
-        }).eq('id', user.id);
-
-        // 2. Log into loan_contributions
-        const { error: logErr } = await client.from('loan_contributions').insert([
-            { user_id: user.id, amount: numericAmt, status: 'success' }
-        ]);
-
-        if (!profileErr && !logErr) {
-            await triggerSMS(`Daily contribution of ₦${numericAmt.toLocaleString()} received. Day ${newLoanDays}/30.`, newLoanBal);
-            alert(`₦${numericAmt.toLocaleString()} Contribution Successful, Sir!`);
-            location.reload();
-        } else {
-            console.error("DB Error:", profileErr || logErr);
-            alert("Database Error. Check if RLS is disabled in Supabase.");
-        }
-    }
-
-    // --- PART 2: LOAN APPLICATION ---
-    function initiateLoanRequest() {
-        if (parseInt(profile.loan_days || 0) < 30) return alert("You must complete your 30-day streak first!");
-        openModal('applyModal');
-    }
-
-    function calculateFees() {
-        const amt = parseFloat(document.getElementById('requestAmount').value || 0);
-        const max = parseFloat(profile.loan_balance || 0) * 3;
-        if (amt <= 0 || amt > max) { document.getElementById('finalPayBtn').disabled = true; return; }
-        const interest = amt * 0.10;
-        const total = interest + 500;
-        document.getElementById('intVal').innerText = `₦${interest.toLocaleString()}`;
-        document.getElementById('totalPay').innerText = `₦${total.toLocaleString()}`;
-        document.getElementById('finalPayBtn').disabled = false;
-    }
-
-    function payInterestAndSubmit() {
-        const amt = document.getElementById('requestAmount').value;
-        const bank = document.getElementById('loanBank').value;
-        const acc = document.getElementById('loanAcc').value;
-
-        if (!amt || !bank || !acc) return alert("Please fill all fields, Boss.");
-
-        const fee = (parseFloat(amt) * 0.10) + 500;
-
-        const handler = PaystackPop.setup({
-            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
-            email: profile.email || `${profile.phone}@zoe.com`,
-            amount: Math.round(fee * 100),
-            currency: "NGN",
-            callback: function(response) {
-                closeModal('applyModal');
-                finalizeLoanApplication(amt, bank, acc);
-            }
-        });
-        handler.openIframe();
-    }
-
-    async function finalizeLoanApplication(amt, bank, acc) {
-        const { error } = await client.from('loan_requests').insert([{
-            user_id: user.id,
-            amount: parseFloat(amt),
-            interest_paid: true,
-            bank_name: bank,
-            account_number: acc,
-            status: 'pending'
-        }]);
-
-        if (!error) {
-            await triggerSMS(`Loan request of ₦${parseFloat(amt).toLocaleString()} submitted and is pending review.`, profile.balance);
-            alert("Loan application submitted successfully!");
-            location.reload();
-        } else {
-            alert("Submission error: " + error.message);
-        }
-    }
-
-    // --- PART 3: SMS HELPER (EXACT DASHBOARD STYLE) ---
-    async function triggerSMS(msgContent, currentBal) {
-        const msg = `Zoe Network: ${msgContent} Wallet Bal: ₦${currentBal}.`;
-        const url = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${profile.phone}&message=${encodeURIComponent(msg)}&gateway=2`;
+        <button class="btn-main btn-green" onclick="processRepaymentChoice('online')" style="margin-bottom:12px;">
+            <i class="fas fa-credit-card"></i> Pay Online (Card/Transfer)
+        </button>
         
-        try {
-            await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
-        } catch (e) { console.log("SMS failed, but database updated."); }
-    }
+        <button class="btn-main btn-gray" onclick="processRepaymentChoice('cash')">
+            <i class="fas fa-money-bill-wave"></i> I Paid Cash
+        </button>
+        
+        <button class="btn-main" style="background:none; color:#999;" onclick="closeModal('repayMethodModal')">Close</button>
+    </div>
+</div>
 
-    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
-</script>
+<div class="modal" id="interestModal">
+    <div class="modal-content">
+        <h3 style="text-align:center; margin-top:0;">Pre-pay Loan Interest</h3>
+        <div style="background:#f0fff8; padding:20px; border-radius:18px; margin-bottom:20px; text-align:center;">
+            <p style="margin:0; font-size:13px;">To access a loan of <b>₦<span id="targetLoanAmt">0</span></b>,</p>
+            <h2 style="margin:5px 0; color:var(--primary);">Pay ₦<span id="interestAmt">0</span></h2>
+            <p style="margin:0; font-size:11px; color:#666;">(10% interest pre-paid to admin)</p>
+        </div>
+        <button class="btn-main btn-green" onclick="payWithPaystack('interest')">Pay with Card</button>
+        <button class="btn-main btn-gray" onclick="submitCashPayment('interest')">I Paid Cash</button>
+        <button class="btn-main" style="background:none;" onclick="closeModal('interestModal')">Cancel</button>
+    </div>
+</div>
+
+<div class="modal" id="loanDetailsModal">
+    <div class="modal-content">
+        <h3 style="text-align:center; margin-top:0;">Disbursement Details</h3>
+        <p style="text-align:center; font-size:12px; margin-bottom:15px;">Where should we send your ₦<span id="disburseAmtText"></span> loan?</p>
+        <input type="text" id="bankName" class="input-pay" placeholder="Bank Name">
+        <input type="text" id="accNum" class="input-pay" placeholder="Account Number" maxlength="10">
+        <input type="text" id="accName" class="input-pay" placeholder="Account Name">
+        <button class="btn-main btn-green" onclick="submitLoanRequest()">Submit Application</button>
+        <button class="btn-main btn-gray" onclick="closeModal('loanDetailsModal')">Back</button>
+    </div>
+</div>
+
+<div class="modal" id="statusModal" style="align-items: center; padding: 20px;">
+    <div class="modal-content" style="border-radius:25px; width:90%; padding:0;">
+        <div style="text-align: center; padding: 30px 20px;">
+            <div id="statusIcon" style="width:70px; height:70px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:30px; margin:0 auto 20px;"></div>
+            <h2 id="statusTitle" style="margin:0 0 10px;">Success!</h2>
+            <p id="statusMsg" style="color:#666; font-size:14px; margin-bottom:25px;">Message goes here.</p>
+            <button class="btn-main btn-green" onclick="closeModal('statusModal'); location.reload();">Done</button>
+        </div>
+    </div>
+</div>
+
+
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item"><i class="fas fa-home nav-icon"></i>Home</a>
+        <a href="loan.html" class="nav-item active"><i class="fas fa-hand-holding-dollar nav-icon"></i>Loan Pro</a>
+        <a href="profile.html" class="nav-item"><i class="fas fa-user-circle nav-icon"></i>Profile</a>
+    </nav>
+
 </body>
 </html>
+<script>
+    const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user = JSON.parse(localStorage.getItem('zoe_user'));
+let profile = null;
+let activeLoan = null;
+let calculatedLoan = 0;
+let calculatedInterest = 0;
+
+window.onload = async () => {
+    if (!user) {
+        window.location.href = 'index.html';
+        return;
+    }
+    await loadData();
+};
+
+async function loadData() {
+    // 1. Refresh Profile
+    const { data: pData } = await client.from('profiles').select('*').eq('id', user.id).single();
+    profile = pData;
+
+    // 2. Refresh Active Loan
+    const { data: lData } = await client.from('loan_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .neq('status', 'repaid')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    activeLoan = lData;
+
+    // 3. NEW: Check if an interest payment was JUST approved by Admin
+    // This looks for an approved 'loan_interest' contribution that doesn't have an active loan yet
+    const { data: interestCheck } = await client.from('contributions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('category', 'loan_interest')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    // If interest is approved but no loan request exists yet, open the bank details modal
+    if (interestCheck && !activeLoan) {
+        calculatedLoan = profile.loan_balance * 3; // Re-calculate based on balance
+        document.getElementById('disburseAmtText').innerText = calculatedLoan.toLocaleString();
+        openModal('loanDetailsModal');
+    }
+
+    updateUI();
+}
+
+function updateUI() {
+    const bal = parseFloat(profile.loan_balance || 0);
+    document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
+    document.getElementById('withdrawableBal').innerText = `₦${bal.toLocaleString()}`;
+
+    // Profile Info
+    const name = profile.full_name || "Zoe Member";
+    document.getElementById('topUserName').innerText = name;
+    document.getElementById('menuUserName').innerText = name;
+    document.getElementById('menuPhone').innerText = profile.phone;
+    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00b578&color=fff`;
+    document.getElementById('topProfilePic').src = avatar;
+    document.getElementById('menuProfilePic').src = avatar;
+
+    // 30-Day Maturity Logic
+    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
+    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
+    const progress = Math.min((diffDays / 30) * 100, 100);
+    
+    document.getElementById('progressBar').style.width = progress + '%';
+    document.getElementById('progressPercent').innerText = Math.round(progress) + '%';
+    document.getElementById('daysCounter').innerText = `${Math.min(diffDays, 30)} / 30 Days`;
+    document.getElementById('maturityStatus').innerText = diffDays >= 30 ? "You are eligible for 3x loan!" : `Save for ${30 - diffDays} more days to qualify.`;
+
+    // 90-Day Repayment UI
+    if (activeLoan && activeLoan.status === 'approved') {
+        document.getElementById('activeLoanSection').style.display = 'block';
+        document.getElementById('repayAmtDisplay').innerText = `₦${parseFloat(activeLoan.amount).toLocaleString()}`;
+        
+        const loanDay = profile.loan_days || 0;
+        document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
+
+        // Calculate Daily Repayment
+        const baseDaily = activeLoan.amount / 90;
+        const savingsDaily = baseDaily * 0.20;
+        let totalDaily = baseDaily + savingsDaily;
+
+        // CHECK FOR LATE PENALTY (10%)
+        // If the user hasn't paid today (logic: if loan_days hasn't increased today)
+        // For simplicity, we check if they missed a day in the sequence
+        const isLate = checkLateStatus(); 
+        if (isLate) {
+            totalDaily = totalDaily + (totalDaily * 0.10);
+            document.getElementById('penaltyLabel').style.display = 'block';
+        }
+
+        document.getElementById('dailyAmtText').innerText = `₦${Math.round(totalDaily).toLocaleString()}`;
+    }
+}
+// --- LOAN WORKFLOW FUNCTIONS ---
+
+function startLoanWorkflow() {
+    if (activeLoan && activeLoan.status !== 'repaid') {
+        return alert("Process Denied: You already have an active or pending loan.");
+    }
+
+    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
+    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 30) {
+        return alert(`You need to save for 30 days. ${30 - diffDays} days remaining.`);
+    }
+
+    if (parseFloat(profile.loan_balance) <= 0) {
+        return alert("Your savings wallet is empty.");
+    }
+
+    // Calculation: 3x Savings
+    calculatedLoan = profile.loan_balance * 3;
+    calculatedInterest = calculatedLoan * 0.10;
+
+    // Fill Modal Data
+    document.getElementById('targetLoanAmt').innerText = calculatedLoan.toLocaleString();
+    document.getElementById('interestAmt').innerText = calculatedInterest.toLocaleString();
+    
+    openModal('interestModal');
+}
+async function submitLoanRequest() {
+    const bank = document.getElementById('bankName').value;
+    const acc = document.getElementById('accNum').value;
+    const name = document.getElementById('accName').value; // Still get the value
+
+    if (!calculatedLoan || calculatedLoan === 0) {
+        calculatedLoan = parseFloat(profile.loan_balance) * 3;
+        calculatedInterest = calculatedLoan * 0.10;
+    }
+
+    if (!bank || acc.length < 10) {
+        return alert("Please enter a valid Bank and 10-digit Account Number.");
+    }
+
+    // UPDATED INSERT LOGIC
+    const { error } = await client.from('loan_requests').insert([{
+        user_id: user.id,
+        amount: calculatedLoan,
+        interest_paid: true,
+        interest_amount: calculatedInterest,
+        bank_name: bank,
+        account_number: acc,
+        // REMOVED 'account_name' to stop the schema error
+        // If you add the column later, you can uncomment the line below:
+        // account_name: name 
+        status: 'pending' 
+    }]);
+
+    if (!error) {
+        closeModal('loanDetailsModal');
+        showStatus(
+            "Application Sent!", 
+            `Request for ₦${calculatedLoan.toLocaleString()} is now with Admin.`, 
+            "success"
+        );
+        setTimeout(() => { location.reload(); }, 2000);
+    } else {
+        console.error("Supabase Error:", error);
+        alert("Submission failed: " + error.message);
+    }
+}
+
+// --- USER SIDE: REPAYMENT HANDLER ---
+// Global variable to hold the calculated amount for the current session
+let currentRepayTotal = 0;
+
+async function handleDailyRepayment() {
+    if (!activeLoan) return alert("No active loan found.");
+
+    // 1. Calculate Math
+    const baseDaily = activeLoan.amount / 90;
+    const savingsPortion = baseDaily * 0.20;
+    let totalDue = baseDaily + savingsPortion;
+
+    // Apply 10% penalty if late and past Day 0
+    if (checkLateStatus() && (profile.loan_days > 0)) {
+        totalDue = totalDue * 1.10;
+    }
+
+    currentRepayTotal = Math.round(totalDue);
+
+    // 2. Update Modal UI and Open
+    document.getElementById('repayAmtDisplay').innerText = currentRepayTotal.toLocaleString();
+    openModal('repayMethodModal');
+}
+
+async function processRepaymentChoice(method) {
+    closeModal('repayMethodModal');
+
+    if (method === 'online') {
+        // Pass the calculated 'currentRepayTotal' directly
+        payWithPaystack('repayment', currentRepayTotal);
+    } else {
+        // Cash Logic
+        await client.from('contributions').insert([{
+            user_id: user.id,
+            amount: currentRepayTotal,
+            status: 'pending',
+            type: 'cash',
+            category: 'loan_repayment'
+        }]);
+        alert("Cash notification sent to Admin!");
+        location.reload();
+    }
+}
+
+function proceedToLoanDetails() {
+    closeModal('interestModal');
+    document.getElementById('disburseAmtText').innerText = calculatedLoan.toLocaleString();
+    openModal('loanDetailsModal');
+}
+
+// --- UPDATED REPAYMENT LOGIC (With 10% Late Fee) ---
+
+async function processDailyRepayment(totalPaid) {
+    const baseAmount = activeLoan.amount / 90;
+    const savingsPortion = baseAmount * 0.20; // 20% of base goes back to savings
+
+    const newBal = (parseFloat(profile.loan_balance) || 0) + savingsPortion;
+    const newDayCount = (profile.loan_days || 0) + 1;
+
+    // Update Profile and Contribution Log
+    await client.from('profiles').update({
+        loan_balance: newBal,
+        loan_days: newDayCount,
+        updated_at: new Date().toISOString()
+    }).eq('id', user.id);
+
+    await client.from('contributions').insert({
+        user_id: user.id,
+        amount: totalPaid,
+        category: 'loan_repayment',
+        status: 'approved'
+    });
+
+    if (newDayCount >= 90) {
+        await client.from('loan_requests').update({ status: 'repaid' }).eq('id', activeLoan.id);
+        showStatus("Loan Finished!", "Congratulations, your loan is fully repaid.");
+    } else {
+        showStatus("Day " + newDayCount + " Paid", `₦${Math.round(savingsPortion)} added to your future savings.`);
+    }
+    
+    loadData();
+}
+
+// --- REPLACED ALERT WITH BEAUTIFIED STATUS ---
+
+function showStatus(title, msg, type = 'success') {
+    const iconBox = document.getElementById('statusIcon');
+    iconBox.style.background = type === 'success' ? '#e6f7f1' : '#fff8e6';
+    iconBox.style.color = type === 'success' ? '#00b578' : '#ff9500';
+    iconBox.innerHTML = type === 'success' ? '<i class="fas fa-check"></i>' : '<i class="fas fa-clock"></i>';
+    
+    document.getElementById('statusTitle').innerText = title;
+    document.getElementById('statusMsg').innerText = msg;
+    openModal('statusModal');
+}
+
+// --- CASH PAYMENT HANDLER ---
+async function submitCashPayment(mode) {
+    let amt;
+    
+    // Determine the amount based on what they are paying for
+    if (mode === 'savings') {
+        amt = document.getElementById('saveAmount').value;
+    } else {
+        // This uses the interest calculated in startLoanWorkflow()
+        amt = calculatedInterest; 
+    }
+
+    // 1. Validation
+    if (!amt || amt < 100) {
+        return alert("Please enter a valid amount (Minimum ₦100).");
+    }
+
+    // 2. Insert into contributions table as 'pending'
+    const { error } = await client.from('contributions').insert([{
+        user_id: user.id,
+        amount: parseFloat(amt),
+        status: 'pending',
+        type: 'cash',
+        category: mode === 'savings' ? 'loan_savings' : 'loan_interest'
+    }]);
+
+    if (!error) {
+        // 3. Close the active modal
+        closeModal(mode === 'savings' ? 'saveModal' : 'interestModal');
+        
+        // 4. Show the beautified status message
+        showStatus(
+            "Request Submitted", 
+            "Your cash payment is pending verification. Please allow up to 24 hours for admin approval.", 
+            "pending"
+        );
+        
+        // 5. Trigger SMS notification for Admin (optional)
+        await triggerBackendSMS(`Zoe Admin: Cash payment of ₦${parseFloat(amt).toLocaleString()} recorded from ${profile.phone}. Please verify.`);
+    } else {
+        console.error("Supabase Error:", error.message);
+        alert("There was an error submitting your request. Please try again.");
+    }
+}
+
+// --- SMS NOTIFICATION HANDLER ---
+async function triggerBackendSMS(msg) {
+    console.log("🔔 Zoe SMS System:", msg); // Local log so you can see it's working in the console
+
+    try {
+        // This calls your Supabase Edge Function named 'Sms'
+        // If you haven't deployed this function yet, it will catch the error below
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/Sms`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${SUPABASE_KEY}` 
+            },
+            body: JSON.stringify({ 
+                phone: profile.phone, 
+                message: msg 
+            })
+        });
+
+        if (!response.ok) {
+            console.warn("SMS service returned an error. Check your Edge Function deployment.");
+        }
+    } catch (e) {
+        // We catch the error so the user's UI doesn't crash if the SMS fails
+        console.error("SMS skip: No backend endpoint found. Transaction still saved.");
+    }
+}
+
+function checkLateStatus() {
+    // Basic logic: if last update was more than 24 hours ago and loan is still active
+    if (!profile.updated_at) return false;
+    const lastUpdate = new Date(profile.updated_at);
+    const hoursSince = Math.floor((new Date() - lastUpdate) / (1000 * 60 * 60));
+    return hoursSince > 30; // 6-hour grace period after 24 hours
+}
+
+// --- WITHDRAWAL (FIXED) ---
+async function handleSavingsWithdrawal() {
+    if (activeLoan && activeLoan.status !== 'repaid') {
+        return alert("Withdrawal Locked: You cannot withdraw savings while you have an active loan.");
+    }
+    if (profile.loan_balance <= 0) return alert("Your balance is ₦0.");
+    openModal('withdrawModal');
+}
+
+async function submitWithdrawalRequest() {
+    const amt = parseFloat(document.getElementById('withdrawAmount').value);
+    const bank = document.getElementById('wBankName').value;
+    const acc = document.getElementById('wAccNum').value;
+
+    if (!amt || amt > profile.loan_balance) return alert("Invalid amount.");
+    if (!bank || acc.length < 10) return alert("Enter valid bank details.");
+
+    const { error } = await client.from('withdrawals').insert({
+        user_id: user.id,
+        amount: amt,
+        bank_name: bank,
+        account_number: acc,
+        account_name: profile.full_name,
+        status: 'pending'
+    });
+
+    if (!error) {
+        // Deduct UI balance
+        const newBal = profile.loan_balance - amt;
+        await client.from('profiles').update({ loan_balance: newBal }).eq('id', user.id);
+        closeModal('withdrawModal');
+        showStatus("Request Sent", "Admin will process your withdrawal within 24 hours.", "pending");
+    }
+}
+
+// --- REPAYMENT LOGIC (Daily 90 Days) ---
+async function openRepayModal() {
+    const baseDaily = activeLoan.amount / 90;
+    const total = baseDaily * 1.20 * (checkLateStatus() ? 1.10 : 1.0);
+    
+    // Create a simple confirmation with two options or a custom modal
+    const choice = confirm(`Daily Installment: ₦${Math.round(total).toLocaleString()}\n\nClick OK to pay with Card/Transfer\nClick CANCEL if you want to report a Cash Payment.`);
+    
+    if (choice) {
+        payWithPaystack('repayment', total);
+    } else {
+        const confirmCash = confirm("Submit a notification for Cash Repayment?");
+        if(confirmCash) submitCashRepayment(total);
+    }
+}
+
+async function submitCashRepayment(amt) {
+    const { error } = await client.from('contributions').insert([{
+        user_id: user.id,
+        amount: amt,
+        status: 'pending',
+        type: 'cash',
+        category: 'loan_repayment' // Admin will see this in their "Payment Verifications"
+    }]);
+
+    if (!error) {
+        showStatus("Notification Sent", "Admin will verify your cash repayment and update your Day counter shortly.", "pending");
+    }
+}
+
+function payWithPaystack(mode, customAmt = 0) {
+    // Priority 1: Use the amount passed from the choice modal (customAmt)
+    // Priority 2: If no customAmt, look for a top-up input field
+    const amt = customAmt || (document.getElementById('topupAmount') ? document.getElementById('topupAmount').value : 0);
+    
+    // Updated minimum to ₦10
+    if (!amt || amt < 10) return alert("Minimum ₦10 required");
+
+    const handler = PaystackPop.setup({
+        key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+        email: profile.email || `${profile.phone}@zoe.com`,
+        amount: Math.round(amt * 100), // This converts Naira to Kobo
+        currency: "NGN",
+        callback: (res) => {
+            if (mode === 'repayment') {
+                syncRepaymentToDatabase(amt);
+            } else {
+                syncToDatabase(amt);
+            }
+        }
+    });
+    handler.openIframe();
+}
+
+
+async function processOnlineRepayment(amt) {
+    // 1. Calculate the day increment
+    const nextDay = (profile.loan_days || 0) + 1;
+    
+    // 2. Calculate the 20% savings portion to add back to wallet
+    const baseAmt = amt / 1.20; 
+    const savingsBackToWallet = baseAmt * 0.20;
+
+    // 3. Update Profile immediately
+    const { error } = await client.from('profiles').update({
+        loan_days: nextDay,
+        loan_balance: (parseFloat(profile.loan_balance) || 0) + savingsBackToWallet,
+        updated_at: new Date().toISOString()
+    }).eq('id', user.id);
+
+    // 4. Record the contribution as 'approved' automatically
+    await client.from('contributions').insert([{
+        user_id: user.id,
+        amount: amt,
+        status: 'approved',
+        type: 'online',
+        category: 'loan_repayment'
+    }]);
+
+    if (!error) {
+        // Refresh the UI to show the new Day count
+        loadData();
+    }
+}
+
+async function processDailyRepayment(totalPaid) {
+    // 1. Math: Split the 20% back to savings
+    const baseAmount = activeLoan.amount / 90;
+    const savingsPortion = baseAmount * 0.20;
+
+    // 2. Update Profile: New Balance + Increment Loan Day
+    const newBal = (parseFloat(profile.loan_balance) || 0) + savingsPortion;
+    const newDayCount = (profile.loan_days || 0) + 1;
+
+    await client.from('profiles').update({
+        loan_balance: newBal,
+        loan_days: newDayCount,
+        updated_at: new Date().toISOString()
+    }).eq('id', user.id);
+
+    // 3. Log the contribution
+    await client.from('contributions').insert({
+        user_id: user.id,
+        amount: totalPaid,
+        category: 'loan_repayment',
+        status: 'approved'
+    });
+
+    showStatus("Payment Confirmed", `Day ${newDayCount} complete! ₦${Math.round(savingsPortion)} added to your future savings.`);
+    
+    if (newDayCount >= 90) {
+        await client.from('loan_requests').update({ status: 'repaid' }).eq('id', activeLoan.id);
+        showStatus("Loan Fully Repaid!", "Congratulations! You can now apply for a higher limit.");
+    }
+    
+    loadData();
+}
+
+// --- HELPER UI FUNCTIONS ---
+function toggleMenu() {
+    const side = document.getElementById('sidebar');
+    const over = document.getElementById('sidebarOverlay');
+    side.classList.toggle('active');
+    over.style.display = side.classList.contains('active') ? 'block' : 'none';
+}
+
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function showStatus(title, msg, type = 'success') {
+    alert(`${title}\n${msg}`); // Replace with your statusModal UI logic
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = 'index.html';
+}
+
+</script>
