@@ -9,14 +9,15 @@
         :root {
             --primary: #004225;
             --accent: #2C6E49;
-            --glass: rgba(255, 255, 255, 0.15);
-            --glass-border: rgba(255, 255, 255, 0.2);
+            --white-glass: rgba(255, 255, 255, 0.9);
+            --input-fill: #f1f5f9;
         }
 
         body {
             margin: 0;
-            font-family: 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #004225 0%, #002010 100%);
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(180deg, #005a32 0%, #002d1a 100%);
             height: 100vh;
             display: flex;
             justify-content: center;
@@ -25,219 +26,255 @@
             color: white;
         }
 
-        /* Glassmorphism Container */
-        .glass-container {
-            background: var(--glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 40px;
+        .container {
             width: 90%;
             max-width: 400px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
             text-align: center;
         }
 
-        .logo-img {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            border: 3px solid white;
-            margin-bottom: 15px;
-            object-fit: cover;
+        /* --- TEXT DROP DOWN ANIMATION --- */
+        .header-title {
+            font-size: 28px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
-        h2 { margin-bottom: 5px; font-weight: 600; letter-spacing: 1px; }
-        p { font-size: 14px; opacity: 0.8; margin-bottom: 25px; }
+        .header-title span {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(-50px);
+            animation: dropDown 0.6s ease forwards;
+        }
 
-        .input-group {
-            margin-bottom: 15px;
+        .header-title span:nth-child(1) { animation-delay: 0.1s; }
+        .header-title span:nth-child(2) { animation-delay: 0.3s; }
+        .header-title span:nth-child(3) { animation-delay: 0.5s; }
+
+        .sub-text {
+            font-size: 14px;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards;
+            animation-delay: 1s;
+            margin-bottom: 30px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes dropDown {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        /* --- GLASS INTERFACE --- */
+        .glass-card {
+            background: var(--white-glass);
+            backdrop-filter: blur(10px);
+            border-radius: 30px;
+            padding: 40px 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: cardSlideUp 0.8s ease forwards;
+            animation-delay: 1.2s;
             text-align: left;
         }
 
-        label { font-size: 12px; font-weight: bold; margin-left: 5px; display: block; margin-bottom: 5px;}
+        @keyframes cardSlideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .glass-card h2 {
+            color: #1a1a1a;
+            font-size: 24px;
+            margin: 0 0 25px 0;
+            font-weight: 700;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
 
         input {
             width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            border: none;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
+            padding: 16px 20px;
+            background: var(--input-fill);
+            border: 1px solid transparent;
+            border-radius: 15px;
             font-size: 16px;
             box-sizing: border-box;
             outline: none;
+            transition: all 0.3s;
+            color: #333;
         }
 
-        .btn-main {
+        input:focus {
+            background: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(0, 66, 37, 0.1);
+        }
+
+        .btn-action {
             width: 100%;
-            padding: 14px;
-            background: white;
-            color: var(--primary);
+            padding: 16px;
+            background: var(--primary);
+            color: white;
             border: none;
-            border-radius: 10px;
+            border-radius: 15px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 700;
             cursor: pointer;
             margin-top: 10px;
-            transition: 0.3s;
+            transition: transform 0.2s, background 0.3s;
         }
 
-        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        .btn-action:hover {
+            background: #005a32;
+            transform: translateY(-2px);
+        }
 
-        .toggle-text {
+        .toggle-link {
+            text-align: center;
             margin-top: 20px;
-            font-size: 13px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .toggle-link b {
+            color: var(--primary);
             cursor: pointer;
             text-decoration: underline;
         }
 
-        /* Loading Spinner */
+        /* Loader */
         .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
+            display: none;
             width: 20px;
             height: 20px;
-            animation: spin 1s linear infinite;
-            display: none;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
             margin: 0 auto;
         }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="glass-container">
-        <img src="logo.jpg" alt="Zoe Logo" class="logo-img">
-        <h2 id="formTitle">Login</h2>
-        <p id="formSub">Access your Zoe Network Dashboard</p>
-
-        <div id="errorMsg" style="color: #ff6b6b; font-size: 13px; margin-bottom: 10px; display: none;"></div>
-
-        <div class="input-group">
-            <label>Phone Number</label>
-            <input type="tel" id="phone" placeholder="08012345678" maxlength="11">
+    <div class="container">
+        <div class="header-title">
+            <span>ZOE</span>
+            <span>MULTIPURPOSE</span>
+            <span>NETWORK</span>
         </div>
-        
-        <div class="input-group" id="nameField" style="display: none;">
-            <label>Full Name</label>
-            <input type="text" id="fullname" placeholder="John Doe">
+        <p class="sub-text">Welcome to your financial future.</p>
+
+        <div class="glass-card">
+            <h2 id="formTitle">Sign In</h2>
+            <div id="statusMsg" style="display:none; font-size:13px; margin-bottom:10px;"></div>
+
+            <div class="input-group" id="nameBox" style="display: none;">
+                <input type="text" id="fullname" placeholder="Full Name">
+            </div>
+
+            <div class="input-group">
+                <input type="tel" id="phone" placeholder="Phone Number" maxlength="11">
+            </div>
+
+            <div class="input-group">
+                <input type="password" id="password" placeholder="Password">
+            </div>
+
+            <button class="btn-action" onclick="handleSubmit()">
+                <span id="btnLabel">Log In</span>
+                <div class="loader" id="loading"></div>
+            </button>
+
+            <div class="toggle-link">
+                <span id="switchText">No account? </span>
+                <b onclick="toggleMode()" id="switchBtn">Sign Up</b>
+            </div>
         </div>
-
-        <div class="input-group">
-            <label>Password</label>
-            <input type="password" id="password" placeholder="••••••••">
-        </div>
-
-        <button class="btn-main" onclick="handleAuth()">
-            <span id="btnText">Login</span>
-            <div class="loader" id="loader"></div>
-        </button>
-
-        <div class="toggle-text" onclick="toggleMode()" id="toggleBtn">New Member? Register Here</div>
     </div>
 
     <script>
-        // CONFIG
         const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
-        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let isLogin = true;
 
+        // Redirect if already logged in
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('zoe_user')) {
+                window.location.href = 'dashboard.html';
+            }
+        });
+
         function toggleMode() {
             isLogin = !isLogin;
-            const title = document.getElementById('formTitle');
-            const sub = document.getElementById('formSub');
-            const nameField = document.getElementById('nameField');
-            const btnText = document.getElementById('btnText');
-            const toggleBtn = document.getElementById('toggleBtn');
-
-            if (isLogin) {
-                title.innerText = "Login";
-                sub.innerText = "Access your Zoe Network Dashboard";
-                nameField.style.display = "none";
-                btnText.innerText = "Login";
-                toggleBtn.innerText = "New Member? Register Here";
-            } else {
-                title.innerText = "Join Zoe";
-                sub.innerText = "Start Saving & Qualifying for Loans";
-                nameField.style.display = "block";
-                btnText.innerText = "Register";
-                toggleBtn.innerText = "Already a member? Login";
-            }
+            document.getElementById('formTitle').innerText = isLogin ? 'Sign In' : 'Sign Up';
+            document.getElementById('btnLabel').innerText = isLogin ? 'Log In' : 'Register';
+            document.getElementById('switchText').innerText = isLogin ? 'No account? ' : 'Already a member? ';
+            document.getElementById('switchBtn').innerText = isLogin ? 'Sign Up' : 'Login';
+            document.getElementById('nameBox').style.display = isLogin ? 'none' : 'block';
         }
 
-        async function handleAuth() {
+        async function handleSubmit() {
             const phone = document.getElementById('phone').value;
-            const password = document.getElementById('password').value;
-            const fullname = document.getElementById('fullname').value;
-            const loader = document.getElementById('loader');
-            const btnText = document.getElementById('btnText');
-            const errorMsg = document.getElementById('errorMsg');
+            const pass = document.getElementById('password').value;
+            const name = document.getElementById('fullname').value;
+            const btnLabel = document.getElementById('btnLabel');
+            const loader = document.getElementById('loading');
+            const status = document.getElementById('statusMsg');
 
-            if (!phone || !password) {
-                alert("Please fill all fields");
+            if (!phone || !pass) {
+                alert("Please fill in all fields");
                 return;
             }
 
-            // Fake Email for Supabase Auth
-            const email = phone + "@zoe.com";
-
-            // UI Loading
-            btnText.style.display = 'none';
+            btnLabel.style.display = 'none';
             loader.style.display = 'block';
-            errorMsg.style.display = 'none';
+            status.style.display = 'none';
+
+            const fakeEmail = `${phone}@zoe.com`;
 
             try {
                 if (isLogin) {
-                    // --- LOGIN LOGIC ---
-                    const { data, error } = await client.auth.signInWithPassword({
-                        email: email,
-                        password: password
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email: fakeEmail,
+                        password: pass
                     });
-
                     if (error) throw error;
-                    
-                    // Save session and redirect
                     localStorage.setItem('zoe_user', JSON.stringify(data.user));
                     window.location.href = 'dashboard.html';
-
                 } else {
-                    // --- SIGNUP LOGIC ---
-                    if (!fullname) { throw { message: "Full Name is required" }; }
-
-                    const { data, error } = await client.auth.signUp({
-                        email: email,
-                        password: password
+                    const { data, error } = await supabaseClient.auth.signUp({
+                        email: fakeEmail,
+                        password: pass
                     });
-
                     if (error) throw error;
-
-                    // Create Profile in Database
-                    const { error: profileError } = await client
-                        .from('profiles')
-                        .insert([{ 
-                            id: data.user.id, 
-                            phone: phone,
-                            full_name: fullname,
-                            balance: 0 
-                        }]);
-
-                    if (profileError) throw profileError;
-
-                    alert("Registration Successful! Please Login.");
-                    toggleMode(); // Switch back to login
+                    
+                    await supabaseClient.from('profiles').insert([
+                        { id: data.user.id, phone: phone, full_name: name, balance: 0 }
+                    ]);
+                    alert("Success! Now please sign in.");
+                    toggleMode();
                 }
-
             } catch (err) {
-                errorMsg.innerText = err.message;
-                errorMsg.style.display = 'block';
+                status.innerText = err.message;
+                status.style.color = 'red';
+                status.style.display = 'block';
             } finally {
-                btnText.style.display = 'block';
+                btnLabel.style.display = 'block';
                 loader.style.display = 'none';
             }
         }
