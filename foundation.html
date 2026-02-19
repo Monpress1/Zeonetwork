@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZOE MULTIPURPOSE NETWORK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #008751; /* Zoe Green */
+            --accent: #00e676;  /* Neon Green for dark backgrounds */
+            --dark-green: #004d30;
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --glass-card: rgba(255, 255, 255, 0.85); /* High opacity for readability */
+            --text-dark: #1a1a1a;
+            --text-light: #ffffff;
+            --danger: #ff4d4d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            /* Deep Green Gradient Background to make Glassmorphism pop */
+            background: linear-gradient(135deg, #004d30 0%, #008751 100%);
+            min-height: 100vh;
+            color: var(--text-dark);
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Abstract blobs for background depth */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -10%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: var(--accent);
+            filter: blur(80px);
+            opacity: 0.4;
+            border-radius: 50%;
+            z-index: -1;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -10%;
+            left: -10%;
+            width: 250px;
+            height: 250px;
+            background: #002b1b;
+            filter: blur(80px);
+            opacity: 0.6;
+            border-radius: 50%;
+            z-index: -1;
+        }
+
+        /* --- UTILITIES --- */
+        .hidden { display: none !important; }
+        .flex-center { display: flex; justify-content: center; align-items: center; }
+        
+        .container {
+            max-width: 480px; /* Mobile width constraint */
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            padding-bottom: 80px; /* Space for bottom nav */
+        }
+
+        /* --- GLASS COMPONENTS --- */
+        .glass-panel {
+            background: var(--glass-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            color: var(--text-dark);
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .input-glass {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 12px;
+            font-size: 15px;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            outline: none;
+            transition: 0.3s;
+        }
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 135, 81, 0.2);
+        }
+
+        .btn-glass {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--dark-green));
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 135, 81, 0.3);
+            transition: 0.3s;
+        }
+        .btn-glass:active { transform: scale(0.98); }
+        .btn-secondary { background: #333; color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        /* --- AUTH --- */
+        #auth-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .auth-header { text-align: center; margin-bottom: 30px; }
+        .auth-header h1 { font-size: 28px; color: var(--text-light); font-weight: 700; margin-bottom: 5px; }
+        .auth-header p { color: rgba(255,255,255,0.7); font-size: 14px; }
+
+        /* --- DASHBOARD STATS --- */
+        .stat-card {
+            background: linear-gradient(145deg, var(--primary), #00663d);
+            border-radius: 20px;
+            padding: 20px;
+            color: white;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 20px rgba(0, 135, 81, 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: -20px; right: -20px;
+            width: 100px; height: 100px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        .stat-card small { opacity: 0.8; text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; margin: 5px 0 15px; }
+        .pill { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; font-size: 11px; display: inline-block; }
+
+        /* --- NAVIGATION (BOTTOM) --- */
+        .nav-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 1000;
+            max-width: 440px;
+            margin: 0 auto;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #888;
+            font-size: 11px;
+            padding: 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; }
+        .nav-item.active { color: var(--primary); background: rgba(0, 135, 81, 0.1); font-weight: 600; }
+
+        /* --- CONTRIBUTION TOGGLE --- */
+        .toggle-wrap {
+            display: flex;
+            background: #eee;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 20px;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: 0.3s;
+            color: #666;
+        }
+        .toggle-btn.active { background: white; color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* --- SECTION HEADERS --- */
+        .section-header { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .section-header h2 { font-size: 22px; color: white; }
+        .user-avatar { width: 40px; height: 40px; background: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--primary); }
+
+        /* Toast Notification */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: var(--dark-green);
+            color: #fff;
+            text-align: center;
+            border-radius: 12px;
+            padding: 16px;
+            position: fixed;
+            z-index: 2000;
+            left: 50%;
+            top: 20px; /* Top notification for mobile */
+            transform: translateX(-50%);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {top: 0; opacity: 0;} to {top: 20px; opacity: 1;} }
+        @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: 0; opacity: 0;} }
+    </style>
+</head>
+<body>
+
+    <div id="toast">Action Successful</div>
+
+    <section id="auth-screen">
+        <div style="width: 100%; max-width: 400px;">
+            <div class="auth-header">
+                <h1>ZOE MULTIPURPOSE NETWORK</h1>
+                <p>Welcome to your financial future.</p>
+            </div>
+
+            <div id="login-view" class="glass-panel">
+                <h3 style="margin-bottom: 20px;">Sign In</h3>
+                <input type="email" class="input-glass" placeholder="Email Address" id="login-email">
+                <input type="password" class="input-glass" placeholder="Password" id="login-password">
+                <button class="btn-glass" onclick="handleLogin()">Log In</button>
+                <p style="text-align: center; margin-top: 15px; font-size: 13px;">
+                    No account? <a href="#" onclick="toggleAuthMode('signup')" style="color: var(--primary); font-weight: 600;">Sign Up</a>
+                </p>
+            </div>
+
+            <div id="signup-view" class="glass-panel hidden">
+                <h3 style="margin-bottom: 20px;">Create Account</h3>
+                <input type="email" class="input-glass" placeholder="Email Address" id="signup-email">
+                <input type="password" class="input-glass" placeholder="Create Password" id="signup-password">
+                <input type="password" class="input-glass" placeholder="Confirm Password">
+                <button class="btn-glass" onclick="handleSignup()">Sign Up</button>
+                <p style="text-align: center; margin-top: 15px; font-size: 13px;">
+                    Have an account? <a href="#" onclick="toggleAuthMode('login')" style="color: var(--primary); font-weight: 600;">Log In</a>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <section id="onboarding-screen" class="hidden container">
+        <div class="glass-panel" style="margin-top: 50px;">
+            <h2 style="margin-bottom: 10px; color: var(--primary);">Complete Profile</h2>
+            <p style="margin-bottom: 20px; font-size: 13px; color: #666;">We need a few details to activate your account.</p>
+            
+            <input type="text" class="input-glass" id="profile-name" placeholder="Full Name">
+            <input type="tel" class="input-glass" id="profile-phone" placeholder="Phone Number">
+            <input type="text" class="input-glass" id="profile-address" placeholder="Residential Address">
+            <input type="text" class="input-glass" id="profile-occupation" placeholder="Occupation">
+            <input type="text" class="input-glass" id="profile-kin" placeholder="Next of Kin">
+            
+            <button class="btn-glass" onclick="completeProfile()">Save & Continue</button>
+        </div>
+    </section>
+
+    <main id="app-screen" class="hidden container">
+        
+        <div class="section-header">
+            <div>
+                <p style="color: rgba(255,255,255,0.8); font-size: 12px;">Welcome back,</p>
+                <h2 id="display-name">User</h2>
+            </div>
+            <div class="user-avatar" onclick="navigate('profile')">
+                <i class="fas fa-user"></i>
+            </div>
+        </div>
+
+        <div id="view-home">
+            <div class="stat-card">
+                <small>Total Savings Balance</small>
+                <div class="value">₦ 450,000</div>
+                <div class="pill"><i class="fas fa-chart-line"></i> +10% Return Active</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="glass-panel" style="padding: 15px; margin: 0; text-align: center;" onclick="navigate('loan')">
+                    <i class="fas fa-hand-holding-dollar" style="font-size: 24px; color: var(--primary); margin-bottom: 10px;"></i>
+                    <h4 style="font-size: 14px;">Get Loan</h4>
+                </div>
+                <div class="glass-panel" style="padding: 15px; margin: 0; text-align: center;" onclick="navigate('contribute')">
+                    <i class="fas fa-coins" style="font-size: 24px; color: var(--primary); margin-bottom: 10px;"></i>
+                    <h4 style="font-size: 14px;">Contribute</h4>
+                </div>
+            </div>
+
+            <h3 style="color: white; font-size: 18px; margin: 25px 0 15px;">Recent Transactions</h3>
+            <div class="glass-panel" style="padding: 0; overflow: hidden;">
+                <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">Daily Contribution</div>
+                        <div style="font-size: 11px; color: #888;">Today, 10:30 AM</div>
+                    </div>
+                    <div style="font-weight: 600; color: var(--primary);">+₦ 2,000</div>
+                </div>
+                <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; font-size: 14px;">Interest Payout</div>
+                        <div style="font-size: 11px; color: #888;">Oct 01, 2023</div>
+                    </div>
+                    <div style="font-weight: 600; color: var(--primary);">+₦ 450</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-loan" class="hidden">
+            <h3 style="color: white; margin-bottom: 15px;">Loan Application</h3>
+            <div class="glass-panel">
+                <p style="font-size: 13px; color: #666; margin-bottom: 20px;">
+                    Loans are subject to a <strong>10% interest rate</strong>. Repayment is fixed at <strong>90 Days</strong>.
+                </p>
+
+                <label style="font-size: 12px; font-weight: 600; color: var(--primary);">AMOUNT NEEDED (₦)</label>
+                <input type="number" id="loan-amount" class="input-glass" placeholder="e.g. 50000" oninput="calcLoan()" style="font-size: 20px; font-weight: 700;">
+
+                <div id="loan-details" class="hidden" style="background: #f9f9f9; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+                        <span>Principal:</span> <span id="val-principal">0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
+                        <span>Interest (10%):</span> <span id="val-interest" style="color: var(--danger);">0</span>
+                    </div>
+                    <div style="border-top: 1px solid #ddd; padding-top: 8px; display: flex; justify-content: space-between; font-weight: 700;">
+                        <span>To Repay:</span> <span id="val-total" style="color: var(--primary);">0</span>
+                    </div>
+                    <div style="text-align: center; margin-top: 10px; font-size: 11px; color: #888;">Due in 90 Days</div>
+                </div>
+
+                <button class="btn-glass" onclick="submitLoan()">Apply Now</button>
+            </div>
+        </div>
+
+        <div id="view-contribute" class="hidden">
+            <h3 style="color: white; margin-bottom: 15px;">Daily Contribution</h3>
+            <div class="glass-panel">
+                <div class="toggle-wrap">
+                    <div class="toggle-btn active" id="mode-cash" onclick="setMode('cash')">CASH</div>
+                    <div class="toggle-btn" id="mode-bank" onclick="setMode('bank')">BANK</div>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <label style="font-size: 12px; color: #888;">AMOUNT (₦)</label>
+                    <input type="number" value="1000" class="input-glass" style="text-align: center; font-size: 24px; font-weight: 700; margin-top: 5px;">
+                </div>
+
+                <p id="mode-desc" style="font-size: 12px; text-align: center; margin-bottom: 20px; color: #666;">
+                    Mark that you have given cash to an agent.
+                </p>
+
+                <button class="btn-glass" onclick="markContribution()">Mark as Contributed</button>
+            </div>
+        </div>
+
+        <div id="view-profile" class="hidden">
+            <h3 style="color: white; margin-bottom: 15px;">My Profile</h3>
+            <div class="glass-panel">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="width: 80px; height: 80px; background: #eee; border-radius: 50%; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 30px; color: #888;">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <button class="btn-outline" style="padding: 5px 15px; border-radius: 20px; font-size: 12px;">Change Photo</button>
+                </div>
+
+                <input type="text" class="input-glass" value="John Doe" id="edit-name">
+                <input type="tel" class="input-glass" value="08012345678">
+                <input type="text" class="input-glass" value="Civil Servant">
+                <input type="text" class="input-glass" value="Lagos, Nigeria">
+
+                <button class="btn-glass" onclick="showToast('Profile Updated!')">Save Changes</button>
+                <button class="btn-glass btn-secondary" style="margin-top: 10px; background: #ff4d4d;" onclick="logout()">Log Out</button>
+            </div>
+        </div>
+
+        <nav class="nav-bar">
+            <div class="nav-item active" onclick="navigate('home', this)">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" onclick="navigate('loan', this)">
+                <i class="fas fa-percentage"></i>
+                <span>Loan</span>
+            </div>
+            <div class="nav-item" onclick="navigate('contribute', this)">
+                <i class="fas fa-calendar-check"></i>
+                <span>Daily</span>
+            </div>
+            <div class="nav-item" onclick="navigate('profile', this)">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </div>
+        </nav>
+
+    </main>
+
+    <script>
+        // --- NAVIGATION LOGIC ---
+        function navigate(viewId, navElement) {
+            // Hide all views
+            ['home', 'loan', 'contribute', 'profile'].forEach(v => {
+                document.getElementById('view-' + v).classList.add('hidden');
+            });
+            
+            // Show target view
+            document.getElementById('view-' + viewId).classList.remove('hidden');
+
+            // Update nav state
+            if(navElement) {
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                navElement.classList.add('active');
+            }
+        }
+
+        // --- AUTH LOGIC ---
+        function toggleAuthMode(mode) {
+            if(mode === 'signup') {
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('signup-view').classList.remove('hidden');
+            } else {
+                document.getElementById('signup-view').classList.add('hidden');
+                document.getElementById('login-view').classList.remove('hidden');
+            }
+        }
+
+        function handleSignup() {
+            // Just move to onboarding
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('onboarding-screen').classList.remove('hidden');
+        }
+
+        function handleLogin() {
+            // Skip onboarding, go to app
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            showToast('Welcome Back!');
+        }
+
+        function completeProfile() {
+            const name = document.getElementById('profile-name').value;
+            if(name) {
+                document.getElementById('display-name').innerText = name.split(' ')[0];
+                document.getElementById('edit-name').value = name;
+            }
+            document.getElementById('onboarding-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            showToast('Profile Setup Complete');
+        }
+
+        function logout() {
+            window.location.reload(); // Simple refresh to reset
+        }
+
+        // --- LOAN LOGIC ---
+        function calcLoan() {
+            const amount = parseFloat(document.getElementById('loan-amount').value);
+            const details = document.getElementById('loan-details');
+            
+            if(amount > 0) {
+                details.classList.remove('hidden');
+                const interest = amount * 0.10;
+                const total = amount + interest;
+
+                document.getElementById('val-principal').innerText = '₦ ' + amount.toLocaleString();
+                document.getElementById('val-interest').innerText = '₦ ' + interest.toLocaleString();
+                document.getElementById('val-total').innerText = '₦ ' + total.toLocaleString();
+            } else {
+                details.classList.add('hidden');
+            }
+        }
+
+        function submitLoan() {
+            showToast('Loan Request Submitted!');
+            document.getElementById('loan-amount').value = '';
+            document.getElementById('loan-details').classList.add('hidden');
+        }
+
+        // --- CONTRIBUTION LOGIC ---
+        let contribMode = 'cash';
+        function setMode(mode) {
+            contribMode = mode;
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('mode-' + mode).classList.add('active');
+
+            const desc = document.getElementById('mode-desc');
+            if(mode === 'cash') {
+                desc.innerText = "Mark that you have given cash to an agent.";
+            } else {
+                desc.innerText = "Please ensure you have transferred the funds to the company account before marking.";
+            }
+        }
+
+        function markContribution() {
+            if(contribMode === 'cash') {
+                showToast('Marked as Cash. Awaiting Agent Approval.');
+            } else {
+                showToast('Transfer Recorded. Awaiting Confirmation.');
+            }
+        }
+
+        // --- TOAST UTILITY ---
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.className = 'show';
+            setTimeout(() => { t.className = t.className.replace('show', ''); }, 3000);
+        }
+
+    </script>
+</body>
+</html>

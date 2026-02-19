@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Network | Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary: #00b578; 
+            --primary-dark: #009663;
+            --bg-color: #f4f5f7;
+            --text-dark: #1a1a1a;
+            --text-gray: #888888;
+            --white: #ffffff;
+            --danger: #ff3b30;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 90px; color: var(--text-dark); overflow-x: hidden; }
+
+        /* OPay Style Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            padding: 25px 20px 70px 20px;
+            color: var(--white);
+            border-bottom-left-radius: 25px;
+            border-bottom-right-radius: 25px;
+        }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .user-info { display: flex; align-items: center; gap: 12px; }
+        .avatar { width: 45px; height: 45px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); object-fit: cover; background: #eee; }
+        .user-name h1 { margin: 0; font-size: 18px; font-weight: 700; }
+        
+        .balance-section { text-align: center; }
+        .balance-amount { font-size: 38px; font-weight: 800; margin: 5px 0; }
+
+        /* Action Grid */
+        .action-card {
+            background: var(--white); width: 90%; margin: -40px auto 20px auto;
+            padding: 20px; border-radius: 20px; display: grid;
+            grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06); position: relative; z-index: 10;
+        }
+        .action-btn { background: none; border: none; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+        .action-icon { width: 50px; height: 50px; border-radius: 15px; display: flex; justify-content: center; align-items: center; font-size: 20px; margin-bottom: 8px; }
+        .icon-add { background: #e6f7f1; color: var(--primary); }
+        .icon-withdraw { background: #fff0eb; color: #ff6b35; }
+        .icon-force { background: #ffeeee; color: var(--danger); }
+        .action-btn span { font-size: 11px; font-weight: 700; color: #444; }
+
+        /* Section Styling */
+        .section { padding: 0 20px; margin-top: 25px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .section-title { font-size: 15px; font-weight: 800; }
+        .card-stat { background: white; padding: 15px; border-radius: 15px; display: flex; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .circle-progress { width: 50px; height: 50px; border-radius: 50%; border: 4px solid #f0f4f3; border-top: 4px solid var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--primary); margin-right: 15px; }
+
+        /* Sidebar */
+        .sidebar { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: white; z-index: 1001; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.1); padding-top: 50px; }
+        .sidebar.open { right: 0; }
+        .sidebar-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; font-weight: 600; color: var(--text-dark); text-decoration: none; border-bottom: 1px solid #f9f9f9; }
+        .sidebar-item i { color: var(--primary); width: 20px; text-align: center; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 4000; justify-content: center; align-items: flex-end; }
+        .modal-content { background: white; padding: 25px; width: 100%; border-radius: 25px 25px 0 0; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .input-pay { width: 100%; padding: 15px; font-size: 18px; border: 1px solid #eee; border-radius: 12px; margin-bottom: 15px; outline: none; }
+        .btn-main { width: 100%; padding: 16px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
+        .btn-green { background: var(--primary); color: white; }
+        .btn-red { background: #fff1f0; color: var(--danger); }
+
+        /* Bottom Nav */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+        .nav-item { text-align: center; color: #bbb; font-size: 10px; text-decoration: none; }
+        .nav-item.active { color: var(--primary); }
+        .nav-icon { font-size: 20px; margin-bottom: 4px; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div style="text-align:center; padding-bottom: 20px;">
+            <img src="" id="menuAvatar" class="avatar" style="width:80px; height:80px;">
+            <h3 id="menuName" style="margin:10px 0 5px;">User</h3>
+        </div>
+        <a href="dashboard.html" class="sidebar-item"><i class="fas fa-home"></i> Home</a>
+        <a href="profile.html" class="sidebar-item"><i class="fas fa-id-card"></i> My Identity</a>
+        <a href="loan.html" class="sidebar-item"><i class="fas fa-money-bill-wave"></i> Apply for Loan</a>
+        <a href="contributions.html" class="sidebar-item"><i class="fas fa-calendar-check"></i> Daily Contribution</a>
+        <a href="history.html" class="sidebar-item"><i class="fas fa-list-ul"></i> Transactions</a>
+        <a href="support.html" class="sidebar-item"><i class="fas fa-headset"></i> Support Chat</a>
+        <a href="#" class="sidebar-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <div class="header">
+        <div class="top-bar">
+            <div class="user-info">
+                <img src="" class="avatar" id="mainAvatar">
+                <div class="user-name">
+                    <span style="font-size:12px; opacity:0.8;">Welcome back,</span>
+                    <h1 id="userName">User</h1>
+                </div>
+            </div>
+            <i class="fas fa-bars" style="font-size:24px;" onclick="toggleMenu()"></i>
+        </div>
+        <div class="balance-section">
+            <div style="font-size:12px; opacity:0.9;">Wallet Balance <i class="fas fa-lock" style="font-size:10px;"></i></div>
+            <div class="balance-amount" id="walletBal">₦0.00</div>
+        </div>
+    </div>
+
+    <div class="action-card">
+        <button class="action-btn" onclick="openModal('topupModal')">
+            <div class="action-icon icon-add"><i class="fas fa-plus-circle"></i></div>
+            <span>Add Money</span>
+        </button>
+        <button class="action-btn" onclick="alert('Standard withdrawal is for matured accounts only.')">
+            <div class="action-icon icon-withdraw"><i class="fas fa-university"></i></div>
+            <span>Withdraw</span>
+        </button>
+        <button class="action-btn" onclick="openModal('forceWithdrawModal')">
+            <div class="action-icon icon-force"><i class="fas fa-bolt"></i></div>
+            <span>Force Out</span>
+        </button>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Loan Eligibility Progress</div>
+        <div class="card-stat">
+            <div class="circle-progress" id="daysCircle">0</div>
+            <div>
+                <div style="font-size:14px; font-weight:700;">Contribution Days</div>
+                <div style="font-size:12px; color:var(--text-gray);">Saved: ₦<span id="savingsTotal">0.00</span></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-header">
+            <div class="section-title">Daily Tick</div>
+            <a href="contributions.html" style="font-size:12px; color:var(--primary); font-weight:700;">View Calendar <i class="fas fa-chevron-right"></i></a>
+        </div>
+        <div class="card-stat" style="justify-content: space-between;">
+            <div>
+                <div style="font-size:14px; font-weight:700;">Today's Contribution</div>
+                <div style="font-size:12px; color:var(--text-gray);">Pay today's contribution to keep streak</div>
+            </div>
+            <button class="btn-main btn-green" style="width:auto; margin:0; padding:10px 20px;" onclick="window.location='contributions.html'">Tick</button>
+        </div>
+    </div>
+
+    <div class="modal" id="topupModal">
+        <div class="modal-content">
+            <h3 style="text-align:center;">Top Up & Tick</h3>
+            <input type="number" id="topupAmount" class="input-pay" placeholder="Amount (₦)">
+            <button class="btn-main btn-green" onclick="payWithPaystack()">Pay Now</button>
+            <button class="btn-main btn-red" onclick="closeModal('topupModal')">Cancel</button>
+        </div>
+    </div>
+
+    <div class="modal" id="forceWithdrawModal">
+        <div class="modal-content">
+            <h3 style="text-align:center; color:var(--danger);"><i class="fas fa-exclamation-circle"></i> Force Withdraw</h3>
+            <p style="font-size:12px; text-align:center; color:#666; margin-bottom:15px;">
+                A <b>10% service charge</b> applies to emergency withdrawals.
+            </p>
+            <input type="text" class="input-pay" placeholder="Account Number" id="accNum">
+            <input type="text" class="input-pay" placeholder="Bank Name" id="bankName">
+            <input type="text" class="input-pay" placeholder="Account Name" id="accName">
+            <button class="btn-main btn-green" onclick="handleForceWithdraw()">Submit Request</button>
+            <button class="btn-main" onclick="closeModal('forceWithdrawModal')">Close</button>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="dashboard.html" class="nav-item active"><i class="fas fa-home nav-icon"></i>Home</a>
+        <a href="loan.html" class="nav-item"><i class="fas fa-comment-dollar nav-icon"></i>Loan</a>
+        <a href="history.html" class="nav-item"><i class="fas fa-history nav-icon"></i>History</a>
+        <a href="#" class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt nav-icon"></i>Logout</a>
+    </div>
+
+    <script>
+      const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let user = JSON.parse(localStorage.getItem('zoe_user'));
+    let profile = null;
+
+    window.onload = async () => {
+        if (!user) { window.location.href = 'index.html'; return; }
+        await loadProfile();
+    };
+
+    async function loadProfile() {
+    const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
+    if (data) {
+        profile = data;
+        document.getElementById('userName').innerText = data.full_name.split(' ')[0];
+        document.getElementById('menuName').innerText = data.full_name;
+        
+        const currentBalance = parseFloat(data.balance || 0);
+        document.getElementById('walletBal').innerText = `₦${currentBalance.toLocaleString()}`;
+        document.getElementById('savingsTotal').innerText = currentBalance.toLocaleString();
+        
+        document.getElementById('daysCircle').innerText = data.savings_days || 0;
+        
+        const avatar = data.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.full_name)}&background=00b578&color=fff&bold=true`;
+        document.getElementById('mainAvatar').src = avatar;
+        document.getElementById('menuAvatar').src = avatar;
+
+        // 👇 ADD THIS LINE HERE 👇
+        enforceProfileCompletion(data);
+    }
+}
+
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('open');
+        const overlay = document.getElementById('overlay');
+        overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function payWithPaystack() {
+        const amt = document.getElementById('topupAmount').value;
+        if (!amt || amt < 100) return alert("Min ₦100");
+
+        const handler = PaystackPop.setup({
+            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+            email: profile.email || `${profile.phone}@zoe.com`,
+            amount: Math.round(amt * 100),
+            currency: "NGN",
+            callback: function(response) {
+                closeModal('topupModal');
+                syncToDatabase(amt);
+            }
+        });
+        handler.openIframe();
+    }
+
+    async function syncToDatabase(amt) {
+        const numericAmt = parseFloat(amt);
+        const newBal = parseFloat(profile.balance || 0) + numericAmt;
+        const newSavingsDays = parseInt(profile.savings_days || 0) + 1;
+
+        // FIX 2: Removed 'savings_balance' from this update object
+        const { error: profileErr } = await client.from('profiles').update({ 
+            balance: newBal,
+            savings_days: newSavingsDays
+        }).eq('id', user.id);
+
+        // 2. Insert into Contributions (Legit record of the transfer)
+        const { error: contribErr } = await client.from('contributions').insert([
+            { user_id: user.id, amount: numericAmt, status: 'approved' }
+        ]);
+
+        if (!profileErr && !contribErr) {
+            await triggerSMS(numericAmt, newBal);
+            alert(`₦${numericAmt.toLocaleString()} successful!`);
+            location.reload();
+        } else {
+            console.error("DB Error:", profileErr || contribErr);
+            alert("Database Sync Error. This usually means a column name is wrong or Permissions (RLS) are blocking the update.");
+        }
+    }
+
+    async function triggerSMS(amt, total) {
+        const msg = `Zoe Network: ₦${amt} deposit successful. Your new balance is ₦${total}.`;
+        const url = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${profile.phone}&message=${encodeURIComponent(msg)}&gateway=2`;
+        
+        try {
+            await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
+        } catch (e) { console.error("SMS Failed", e); }
+    }
+
+    async function handleForceWithdraw() {
+        const bal = parseFloat(profile.balance);
+        const bank = document.getElementById('bankName').value;
+        const acc = document.getElementById('accNum').value;
+
+        if (bal < 500) return alert("Insufficient balance.");
+        if (!bank || !acc) return alert("Please fill bank details.");
+
+        const charge = bal * 0.10;
+        const final = bal - charge;
+
+        if (confirm(`Withdraw ₦${bal.toLocaleString()}? After 10% fee, you receive ₦${final.toLocaleString()}.`)) {
+            // FIX 3: Using 'guarantor' columns to store bank info as a workaround for your schema
+            const { error } = await client.from('loans').insert([{
+                user_id: user.id,
+                amount: final,
+                status: 'force_withdraw_pending',
+                guarantor_name: bank,
+                guarantor_phone: acc
+            }]);
+
+            if (!error) {
+                alert("Force withdrawal request sent!");
+                closeModal('forceWithdrawModal');
+            }
+        }
+    }
+    function enforceProfileCompletion(profileData) {
+    // 1. Check if profile is complete
+    const isProfileComplete = profileData.address && profileData.nin && profileData.email; 
+    
+    // 2. Check if we have already shown this prompt before
+    const hasBeenPrompted = localStorage.getItem('zoe_profile_prompted');
+
+    // If it's complete OR they've already seen the popup once, STOP here.
+    if (isProfileComplete || hasBeenPrompted) return; 
+
+    // 3. If we reached here, it's their first time. Set the flag immediately 
+    // so it never pops up again on this device.
+    localStorage.setItem('zoe_profile_prompted', 'true');
+
+    // --- GLASS MORPHISM UI ---
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.4); 
+        backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        z-index: 9999; display: flex; align-items: center; justify-content: center;
+        padding: 20px; box-sizing: border-box;
+    `;
+
+    if (!document.getElementById('glass-anim')) {
+        const style = document.createElement('style');
+        style.id = 'glass-anim';
+        style.innerHTML = `@keyframes glassPop { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`;
+        document.head.appendChild(style);
+    }
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: rgba(255, 255, 255, 0.75);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 30px; padding: 40px 25px;
+        width: 100%; max-width: 340px; text-align: center;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        animation: glassPop 0.5s ease-out;
+    `;
+
+    modal.innerHTML = `
+        <div style="background: var(--primary); color: white; width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 20px; transform: rotate(-10deg); box-shadow: 0 10px 20px rgba(0,181,120,0.3);">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <h2 style="margin: 0 0 10px; font-size: 22px; color: #1a1a1a; font-weight: 800; letter-spacing: -0.5px;">Setup Identity</h2>
+        <p style="margin: 0 0 30px; font-size: 14px; color: #444; line-height: 1.5; font-weight: 500;">
+            To access all features and protect your funds, please finish setting up your profile.
+        </p>
+        <button onclick="window.location.href='profile.html'" style="background: #1a1a1a; color: white; border: none; padding: 18px; width: 100%; border-radius: 16px; font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+            Complete Profile
+        </button>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+}
+
+    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+    
+  
+  </script
+  ></body>
+</html>

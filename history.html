@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Network | History</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary: #00b578; 
+            --bg-color: #f4f5f7;
+            --white: #ffffff;
+            --text-dark: #1a1a1a;
+            --text-gray: #888888;
+            --danger: #ff3b30;
+            --warning: #ff9500;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 30px; color: var(--text-dark); }
+
+        /* Premium Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary), #008a5c);
+            padding: 30px 20px 60px;
+            color: white;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 800; }
+
+        /* Filter Tabs (Glassmorphism) */
+        .filter-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: -25px 20px 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+        }
+        .filter-btn {
+            padding: 10px 18px;
+            border-radius: 12px;
+            border: none;
+            background: transparent;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .filter-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 10px rgba(0, 181, 120, 0.2);
+        }
+
+        /* History List */
+        .history-section { padding: 0 20px; }
+        .history-item {
+            background: var(--white);
+            padding: 15px;
+            border-radius: 18px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+            border: 1px solid #f0f0f0;
+        }
+        .item-left { display: flex; align-items: center; gap: 15px; }
+        .icon-box {
+            width: 45px;
+            height: 45px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+        }
+        .icon-credit { background: #e6f7f1; color: var(--primary); }
+        .icon-debit { background: #fff0eb; color: #ff6b35; }
+        
+        .item-details b { display: block; font-size: 14px; margin-bottom: 2px; }
+        .item-details span { font-size: 11px; color: var(--text-gray); font-weight: 500; }
+        
+        .item-right { text-align: right; }
+        .amount { display: block; font-weight: 800; font-size: 15px; margin-bottom: 4px; }
+        .status { 
+            font-size: 9px; 
+            font-weight: 800; 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            text-transform: uppercase;
+        }
+        .status-approved { background: #e6f7f1; color: var(--primary); }
+        .status-pending { background: #fff9e6; color: var(--warning); }
+        .status-rejected { background: #ffeeee; color: var(--danger); }
+
+        /* Sidebar Styles (Consistent with Dashboard) */
+        .sidebar { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: white; z-index: 1001; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.1); padding-top: 50px; }
+        .sidebar.open { right: 0; }
+        .sidebar-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; font-weight: 600; color: var(--text-dark); text-decoration: none; border-bottom: 1px solid #f9f9f9; }
+        .sidebar-item i { color: var(--primary); width: 20px; text-align: center; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 1000; }
+        .menu-btn { position: absolute; top: 25px; right: 20px; color: white; font-size: 24px; cursor: pointer; }
+
+        .shimmer { text-align: center; color: var(--text-gray); margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    
+    <div class="sidebar" id="sidebar">
+        <div style="text-align:center; padding-bottom: 20px;">
+            <img src="" id="menuAvatar" style="width:80px; height:80px; border-radius:50%; background:#eee;">
+            <h3 id="menuName" style="margin:10px 0 5px;">User</h3>
+        </div>
+        <a href="dashboard.html" class="sidebar-item"><i class="fas fa-home"></i> Home</a>
+        <a href="profile.html" class="sidebar-item"><i class="fas fa-id-card"></i> My Identity</a>
+        <a href="loan.html" class="sidebar-item"><i class="fas fa-money-bill-wave"></i> Apply for Loan</a>
+        <a href="contributions.html" class="sidebar-item"><i class="fas fa-calendar-check"></i> Daily Contribution</a>
+        <a href="history.html" class="sidebar-item"><i class="fas fa-list-ul"></i> Transactions</a>
+        <a href="support.html" class="sidebar-item"><i class="fas fa-headset"></i> Support Chat</a>
+        <a href="#" class="sidebar-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <div class="header">
+        <i class="fas fa-bars menu-btn" onclick="toggleMenu()"></i>
+        <h1>Transaction History</h1>
+    </div>
+
+    <div class="filter-container">
+        <button class="filter-btn active" onclick="filterData('all', this)">All</button>
+        <button class="filter-btn" onclick="filterData('contribution', this)">Savings</button>
+        <button class="filter-btn" onclick="filterData('loan', this)">Loans</button>
+    </div>
+
+    <div class="history-section" id="history-list">
+        <div class="shimmer">
+            <i class="fas fa-circle-notch fa-spin"></i> Loading history...
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let user = JSON.parse(localStorage.getItem('zoe_user'));
+        let masterData = [];
+
+        window.onload = async () => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            setupSidebar();
+            await fetchHistory();
+        };
+
+        function setupSidebar() {
+            document.getElementById('menuName').innerText = user.full_name || "Zoe User";
+            const avatar = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name || 'User')}&background=00b578&color=fff&bold=true`;
+            document.getElementById('menuAvatar').src = avatar;
+        }
+
+        async function fetchHistory() {
+            // Fetch both Contributions and Loans for this specific user
+            const [contribResponse, loanResponse] = await Promise.all([
+                client.from('contributions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+                client.from('loan_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+            ]);
+
+            // Add a "category" tag to distinguish them
+            const contributions = (contribResponse.data || []).map(item => ({ ...item, category: 'contribution' }));
+            const loans = (loanResponse.data || []).map(item => ({ ...item, category: 'loan' }));
+
+            // Merge and sort by date
+            masterData = [...contributions, ...loans].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            renderList(masterData);
+        }
+
+        function renderList(data) {
+            const listDiv = document.getElementById('history-list');
+            if (data.length === 0) {
+                listDiv.innerHTML = '<div class="shimmer" style="margin-top:100px;">No transactions found yet.</div>';
+                return;
+            }
+
+            listDiv.innerHTML = '';
+            data.forEach(item => {
+                const isLoan = item.category === 'loan';
+                const dateStr = new Date(item.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+                const timeStr = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                const title = isLoan ? 'Loan Application' : (item.type || 'Contribution Payment');
+                const iconClass = isLoan ? 'fas fa-hand-holding-usd' : 'fas fa-wallet';
+                const iconTheme = isLoan ? 'icon-debit' : 'icon-credit';
+                const amountPrefix = isLoan ? '' : '+';
+                
+                listDiv.innerHTML += `
+                    <div class="history-item">
+                        <div class="item-left">
+                            <div class="icon-box ${iconTheme}">
+                                <i class="${iconClass}"></i>
+                            </div>
+                            <div class="item-details">
+                                <b>${title}</b>
+                                <span>${dateStr} • ${timeStr}</span>
+                            </div>
+                        </div>
+                        <div class="item-right">
+                            <span class="amount" style="color: ${isLoan ? '#1a1a1a' : '#00b578'}">
+                                ${amountPrefix}₦${parseFloat(item.amount).toLocaleString()}
+                            </span>
+                            <span class="status status-${item.status}">
+                                ${item.status}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function filterData(type, btn) {
+            // Toggle active button
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            if (type === 'all') {
+                renderList(masterData);
+            } else {
+                const filtered = masterData.filter(item => item.category === type);
+                renderList(filtered);
+            }
+        }
+
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+    </script>
+</body>
+</html>

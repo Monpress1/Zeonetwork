@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Network | Support</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --primary: #00b578; 
+            --white: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --text-dark: #1a1a1a;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            background: linear-gradient(135deg, #00b578, #004d33); 
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: var(--text-dark);
+            padding-bottom: 30px;
+        }
+
+        /* Header Style */
+        .header {
+            padding: 25px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--white);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 25px;
+            margin: 15px 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .support-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            text-decoration: none;
+            color: var(--text-dark);
+            padding: 15px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.3);
+            margin-bottom: 12px;
+            border: 1px solid var(--glass-border);
+            transition: 0.3s;
+        }
+
+        .support-option i { font-size: 24px; color: var(--primary); }
+        .support-option div b { display: block; font-size: 15px; }
+        .support-option div span { font-size: 12px; opacity: 0.7; }
+
+        /* Form Styling */
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px; opacity: 0.8; }
+        .input-glass {
+            width: 100%;
+            background: rgba(255,255,255,0.5);
+            border: 1px solid var(--glass-border);
+            padding: 15px;
+            border-radius: 12px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .btn-send {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: 800;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(0, 181, 120, 0.3);
+        }
+
+        /* Floating Info Button */
+        .floating-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 25px;
+            width: 60px;
+            height: 60px;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 99;
+            border: 2px solid var(--glass-border);
+        }
+
+        /* Modal Styling */
+        .modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); z-index: 2000; 
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-content { 
+            background: rgba(255,255,255,0.9); border-radius: 30px; padding: 30px; 
+            max-width: 500px; width: 100%; max-height: 80vh; overflow-y: auto; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        .info-section { border-bottom: 1px solid #ddd; padding: 15px 0; }
+        .info-section h4 { color: var(--primary); margin: 0 0 5px; font-size: 14px; text-transform: uppercase; }
+        .info-section p { margin: 0; font-size: 13px; line-height: 1.6; color: #444; }
+
+        /* Sidebar Copy from Dashboard */
+        .sidebar { position: fixed; top: 0; right: -300px; width: 280px; height: 100%; background: white; z-index: 3000; transition: 0.3s; box-shadow: -5px 0 20px rgba(0,0,0,0.1); padding-top: 50px; }
+        .sidebar.open { right: 0; }
+        .sidebar-item { padding: 15px 25px; display: flex; align-items: center; gap: 15px; font-weight: 600; color: #1a1a1a; text-decoration: none; border-bottom: 1px solid #f9f9f9; }
+        .sidebar-item i { color: var(--primary); width: 20px; text-align: center; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; z-index: 2500; }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div style="text-align:center; padding-bottom: 20px;">
+            <img src="" id="menuAvatar" style="width:80px; height:80px; border-radius:50%; background:#eee; object-fit:cover;">
+            <h3 id="menuName" style="margin:10px 0 5px;">User</h3>
+        </div>
+        <a href="dashboard.html" class="sidebar-item"><i class="fas fa-home"></i> Home</a>
+        <a href="profile.html" class="sidebar-item"><i class="fas fa-id-card"></i> My Identity</a>
+        <a href="loan.html" class="sidebar-item"><i class="fas fa-money-bill-wave"></i> Apply for Loan</a>
+        <a href="contributions.html" class="sidebar-item"><i class="fas fa-calendar-check"></i> Daily Contribution</a>
+        <a href="history.html" class="sidebar-item"><i class="fas fa-list-ul"></i> Transactions</a>
+        <a href="support.html" class="sidebar-item"><i class="fas fa-headset"></i> Support Chat</a>
+        <a href="#" class="sidebar-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+
+    <div class="header">
+        <h2 style="margin:0; font-weight:800; letter-spacing:-1px;">Help Center</h2>
+        <i class="fas fa-bars" style="font-size:24px;" onclick="toggleMenu()"></i>
+    </div>
+
+    <div class="glass-card">
+        <h3 style="margin-top:0;">Contact Us</h3>
+        
+        <a href="https://wa.me/2349121303479" class="support-option">
+            <i class="fab fa-whatsapp"></i>
+            <div>
+                <b>WhatsApp Chat</b>
+                <span>Chat with an agent instantly</span>
+            </div>
+        </a>
+
+        <a href="mailto:info.aquacoinofficial@gmail.com" class="support-option">
+            <i class="far fa-envelope"></i>
+            <div>
+                <b>Direct Email</b>
+                <span>info.aquacoinofficial@gmail.com</span>
+            </div>
+        </a>
+    </div>
+
+    <div class="glass-card">
+        <h3 style="margin-top:0;">Send a Message</h3>
+        <div class="input-group">
+            <label>Subject</label>
+            <input type="text" id="mailSub" class="input-glass" placeholder="What do you need help with?">
+        </div>
+        <div class="input-group">
+            <label>Your Message</label>
+            <textarea id="mailBody" class="input-glass" rows="4" placeholder="Type your details here..."></textarea>
+        </div>
+        <button class="btn-send" onclick="sendMail()">Send Email </button>
+    </div>
+
+    <div class="floating-btn" onclick="openModal()">
+        <i class="fas fa-info-circle"></i>
+    </div>
+
+    <div class="modal" id="infoModal" onclick="if(event.target == this) closeModal()">
+        <div class="modal-content">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="margin:0; font-size:18px;">Mode of Operation</h2>
+                <i class="fas fa-times" onclick="closeModal()" style="cursor:pointer;"></i>
+            </div>
+
+            <div class="info-section">
+                <h4>Membership</h4>
+                <p>Open to individuals agreeing to Network rules. Registration requires an approved form and a one-time fee of ₦1,000.</p>
+            </div>
+            <div class="info-section">
+                <h4>Savings</h4>
+                <p>Members must save weekly for 4 weeks (1 month) before becoming eligible for loans. Contributions must be consistent.</p>
+            </div>
+            <div class="info-section">
+                <h4>Loan Access</h4>
+                <p>Eligible after 4 consecutive weeks of savings. Requires a 10% interest payment upfront. A compulsory 10% of the repayment amount is added to savings during the repayment period.</p>
+            </div>
+            <div class="info-section">
+                <h4>Repayment</h4>
+                <p>Follows an agreed weekly or daily schedule. A 10% default fee applies to missed payments. Continuous default leads to suspension or deduction from savings.</p>
+            </div>
+            <div class="info-section">
+                <h4>Record Keeping</h4>
+                <p>Each member maintains a Savings & Loan Card/Record Book. Entries are updated by the Secretary and Treasurer.</p>
+            </div>
+            <div class="info-section">
+                <h4>Benefits</h4>
+                <p>Access to structured savings, loans after 4 weeks, collective investment opportunities, and financial discipline.</p>
+            </div>
+            <div class="info-section">
+                <h4>Discipline</h4>
+                <p>False information or rule violations attract penalties. Persistent defaulters face suspension or expulsion.</p>
+            </div>
+            <button class="btn-send" style="margin-top:20px;" onclick="closeModal()">I Understand</button>
+        </div>
+    </div>
+
+    <script>
+        const user = JSON.parse(localStorage.getItem('zoe_user'));
+
+        window.onload = () => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            // Set sidebar details
+            document.getElementById('menuName').innerText = user.full_name || "Zoe Multipurpose Network";
+            const avatar = user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&background=00b578&color=fff&bold=true`;
+            document.getElementById('menuAvatar').src = avatar;
+        };
+
+        function toggleMenu() {
+            document.getElementById('sidebar').classList.toggle('open');
+            const overlay = document.getElementById('overlay');
+            overlay.style.display = overlay.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function openModal() { document.getElementById('infoModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('infoModal').style.display = 'none'; }
+
+        function sendMail() {
+            const sub = document.getElementById('mailSub').value;
+            const body = document.getElementById('mailBody').value;
+            if(!sub || !body) return alert("Please fill the message details.");
+            
+            window.location.href = `mailto:info.aquacoinofficial@gmail.com?subject=${encodeURIComponent(sub)}&body=${encodeURIComponent(body)}`;
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+    </script>
+</body>
+</html>

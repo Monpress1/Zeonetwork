@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoe Network | Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #004225;
+            --accent: #2C6E49;
+            --glass: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #004225 0%, #002010 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            color: white;
+        }
+
+        /* Glassmorphism Container */
+        .glass-container {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 40px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            text-align: center;
+        }
+
+        .logo-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid white;
+            margin-bottom: 15px;
+            object-fit: cover;
+        }
+
+        h2 { margin-bottom: 5px; font-weight: 600; letter-spacing: 1px; }
+        p { font-size: 14px; opacity: 0.8; margin-bottom: 25px; }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label { font-size: 12px; font-weight: bold; margin-left: 5px; display: block; margin-bottom: 5px;}
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .btn-main {
+            width: 100%;
+            padding: 14px;
+            background: white;
+            color: var(--primary);
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: 0.3s;
+        }
+
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        .toggle-text {
+            margin-top: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 0 auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="glass-container">
+        <img src="logo.jpg" alt="Zoe Logo" class="logo-img">
+        <h2 id="formTitle">Login</h2>
+        <p id="formSub">Access your Zoe Network Dashboard</p>
+
+        <div id="errorMsg" style="color: #ff6b6b; font-size: 13px; margin-bottom: 10px; display: none;"></div>
+
+        <div class="input-group">
+            <label>Phone Number</label>
+            <input type="tel" id="phone" placeholder="08012345678" maxlength="11">
+        </div>
+        
+        <div class="input-group" id="nameField" style="display: none;">
+            <label>Full Name</label>
+            <input type="text" id="fullname" placeholder="John Doe">
+        </div>
+
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••">
+        </div>
+
+        <button class="btn-main" onclick="handleAuth()">
+            <span id="btnText">Login</span>
+            <div class="loader" id="loader"></div>
+        </button>
+
+        <div class="toggle-text" onclick="toggleMode()" id="toggleBtn">New Member? Register Here</div>
+    </div>
+
+    <script>
+        // CONFIG
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let isLogin = true;
+
+        function toggleMode() {
+            isLogin = !isLogin;
+            const title = document.getElementById('formTitle');
+            const sub = document.getElementById('formSub');
+            const nameField = document.getElementById('nameField');
+            const btnText = document.getElementById('btnText');
+            const toggleBtn = document.getElementById('toggleBtn');
+
+            if (isLogin) {
+                title.innerText = "Login";
+                sub.innerText = "Access your Zoe Network Dashboard";
+                nameField.style.display = "none";
+                btnText.innerText = "Login";
+                toggleBtn.innerText = "New Member? Register Here";
+            } else {
+                title.innerText = "Join Zoe";
+                sub.innerText = "Start Saving & Qualifying for Loans";
+                nameField.style.display = "block";
+                btnText.innerText = "Register";
+                toggleBtn.innerText = "Already a member? Login";
+            }
+        }
+
+        async function handleAuth() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const fullname = document.getElementById('fullname').value;
+            const loader = document.getElementById('loader');
+            const btnText = document.getElementById('btnText');
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!phone || !password) {
+                alert("Please fill all fields");
+                return;
+            }
+
+            // Fake Email for Supabase Auth
+            const email = phone + "@zoe.com";
+
+            // UI Loading
+            btnText.style.display = 'none';
+            loader.style.display = 'block';
+            errorMsg.style.display = 'none';
+
+            try {
+                if (isLogin) {
+                    // --- LOGIN LOGIC ---
+                    const { data, error } = await client.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    });
+
+                    if (error) throw error;
+                    
+                    // Save session and redirect
+                    localStorage.setItem('zoe_user', JSON.stringify(data.user));
+                    window.location.href = 'dashboard.html';
+
+                } else {
+                    // --- SIGNUP LOGIC ---
+                    if (!fullname) { throw { message: "Full Name is required" }; }
+
+                    const { data, error } = await client.auth.signUp({
+                        email: email,
+                        password: password
+                    });
+
+                    if (error) throw error;
+
+                    // Create Profile in Database
+                    const { error: profileError } = await client
+                        .from('profiles')
+                        .insert([{ 
+                            id: data.user.id, 
+                            phone: phone,
+                            full_name: fullname,
+                            balance: 0 
+                        }]);
+
+                    if (profileError) throw profileError;
+
+                    alert("Registration Successful! Please Login.");
+                    toggleMode(); // Switch back to login
+                }
+
+            } catch (err) {
+                errorMsg.innerText = err.message;
+                errorMsg.style.display = 'block';
+            } finally {
+                btnText.style.display = 'block';
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

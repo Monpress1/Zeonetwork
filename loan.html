@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Zoe Network | Loan Portal</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://js.paystack.co/v1/inline.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+:root{
+--primary:#00b578;
+--primary-dark:#009663;
+--bg:#f4f5f7;
+--white:#fff;
+--text:#1a1a1a;
+--gray:#888;
+--danger:#ff3b30;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);padding-bottom:90px;color:var(--text);}
+.header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));padding:25px 20px 70px;color:white;border-bottom-left-radius:25px;border-bottom-right-radius:25px;text-align:center;}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;}
+.back-btn{color:white;text-decoration:none;font-size:20px;}
+.limit-amount{font-size:34px;font-weight:800;margin-top:5px;}
+.main-card{background:white;width:90%;margin:-40px auto 20px;padding:20px;border-radius:20px;box-shadow:0 8px 20px rgba(0,0,0,0.06);}
+.btn-add-loan{background:#e6f7f1;color:var(--primary);border:2px dashed var(--primary);width:100%;padding:15px;border-radius:15px;font-weight:700;display:flex;justify-content:center;align-items:center;gap:10px;cursor:pointer;margin-bottom:20px;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;text-align:center;}
+.stat-box{background:#f9f9f9;padding:12px;border-radius:12px;}
+.stat-box b{display:block;font-size:18px;color:var(--primary);}
+.stat-box span{font-size:10px;color:var(--gray);text-transform:uppercase;font-weight:700;}
+.section{padding:0 20px;}
+.rules-card{background:white;padding:15px;border-radius:15px;margin-bottom:20px;}
+.rules-card ul{margin:0;padding-left:20px;font-size:12px;color:#555;line-height:1.8;}
+.input-pay{width:100%;padding:15px;font-size:16px;border:1px solid #eee;border-radius:12px;margin-bottom:12px;outline:none;}
+.calc-row{display:flex;justify-content:space-between;font-size:13px;padding:8px 0;border-bottom:1px solid #f4f4f4;}
+.btn-main{width:100%;padding:16px;border-radius:12px;border:none;font-weight:700;cursor:pointer;margin-top:10px;font-size:16px;}
+.btn-green{background:var(--primary);color:white;}
+.btn-green:disabled{background:#ccc;}
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:4000;justify-content:center;align-items:flex-end;}
+.modal-content{background:white;padding:25px;width:100%;border-radius:25px 25px 0 0;}
+.bottom-nav{position:fixed;bottom:0;width:100%;background:white;display:flex;justify-content:space-around;padding:12px 0 25px;box-shadow:0 -5px 15px rgba(0,0,0,0.05);}
+.nav-item{text-align:center;color:#bbb;font-size:10px;text-decoration:none;}
+.nav-item.active{color:var(--primary);}
+.nav-icon{font-size:20px;margin-bottom:4px;display:block;}
+</style>
+</head>
+<body>
+
+<div class="header">
+<div class="top-bar">
+<a href="dashboard.html" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+<span style="font-weight:700;">Loan Center</span>
+<div style="width:20px;"></div>
+</div>
+<div>
+<div style="font-size:12px;opacity:0.9;">Available Loan Limit (3x)</div>
+<div class="limit-amount" id="maxLoanDisplay">₦0.00</div>
+</div>
+</div>
+
+<div class="main-card">
+<button class="btn-add-loan" onclick="openModal('saveModal')">
+<i class="fas fa-plus-circle"></i> Daily Loan Contribution
+</button>
+
+<div class="stats-grid">
+<div class="stat-box">
+<b id="daysCount">0/30</b>
+<span>Streak Days</span>
+</div>
+<div class="stat-box">
+<b id="loanBalDisplay">₦0</b>
+<span>Loan Balance</span>
+</div>
+</div>
+
+<div id="statusTag" style="text-align:center;font-size:11px;font-weight:800;margin-top:15px;color:var(--danger);">
+<i class="fas fa-lock"></i> 30-DAY STREAK REQUIRED
+</div>
+</div>
+
+<div class="section">
+<div class="rules-card">
+<div style="font-weight:800;font-size:14px;margin-bottom:8px;">
+<i class="fas fa-info-circle" style="color:var(--primary);"></i> How it works
+</div>
+<ul>
+<li>Save daily for 30 days to qualify.</li>
+<li>Borrow up to 3 times your Loan Balance.</li>
+<li>Repayment duration: 90 Days.</li>
+<li>10% Upfront Interest + ₦500 Security fee applies.</li>
+</ul>
+</div>
+
+<button class="btn-main btn-green" onclick="initiateLoanRequest()">Apply for Loan</button>
+</div>
+
+<!-- SAVE MODAL -->
+<div class="modal" id="saveModal">
+<div class="modal-content">
+<h3 style="text-align:center;">Daily Loan Contribution</h3>
+<input type="number" id="saveAmount" class="input-pay" placeholder="Amount (₦)">
+<button class="btn-main btn-green" onclick="processLoanContribution()">Pay Now</button>
+<button class="btn-main" onclick="closeModal('saveModal')">Cancel</button>
+</div>
+</div>
+
+<!-- APPLY MODAL -->
+<div class="modal" id="applyModal">
+<div class="modal-content">
+<h3>Loan Application</h3>
+<input type="number" id="requestAmount" class="input-pay" placeholder="Amount to borrow" oninput="calculateFees()">
+<input type="text" id="loanBank" class="input-pay" placeholder="Bank Name">
+<input type="text" id="loanAcc" class="input-pay" placeholder="Account Number">
+<div class="calc-row"><span>10% Interest</span><b id="intVal">₦0.00</b></div>
+<div class="calc-row"><span>Security Fee</span><b>₦500.00</b></div>
+<div class="calc-row" style="border:none;"><span>Pay Now</span><b id="totalPay" style="color:var(--primary);">₦0.00</b></div>
+<button class="btn-main btn-green" id="finalPayBtn" onclick="payInterestAndSubmit()">Pay & Apply</button>
+<button class="btn-main" onclick="closeModal('applyModal')">Back</button>
+</div>
+</div>
+
+<div class="bottom-nav">
+<a href="dashboard.html" class="nav-item"><i class="fas fa-home nav-icon"></i>Home</a>
+<a href="loan.html" class="nav-item active"><i class="fas fa-hand-holding-usd nav-icon"></i>Loan</a>
+<a href="history.html" class="nav-item"><i class="fas fa-receipt nav-icon"></i>History</a>
+</div>
+
+<script>
+
+    const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let user = JSON.parse(localStorage.getItem('zoe_user'));
+    let profile = null;
+
+    window.onload = async () => {
+        if (!user) { window.location.href = 'index.html'; return; }
+        await loadProfile();
+    };
+
+    async function loadProfile() {
+        const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
+        if (data) {
+            profile = data;
+            updateUI();
+        }
+    }
+
+    function updateUI() {
+        const bal = parseFloat(profile.loan_balance || 0);
+        const days = parseInt(profile.loan_days || 0);
+        document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
+        document.getElementById('daysCount').innerText = `${days}/30`;
+        document.getElementById('maxLoanDisplay').innerText = `₦${(bal * 3).toLocaleString()}`;
+        
+        if (days >= 30) {
+            document.getElementById('statusTag').innerHTML = '<i class="fas fa-check-circle"></i> ELIGIBILITY UNLOCKED';
+            document.getElementById('statusTag').style.color = 'var(--primary)';
+        }
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // --- PART 1: DAILY CONTRIBUTION (MATCHES DASHBOARD TOPUP) ---
+    function processLoanContribution() {
+        const amt = document.getElementById('saveAmount').value;
+        if (!amt || amt < 100) return alert("Min ₦100");
+
+        const handler = PaystackPop.setup({
+            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+            email: profile.email || `${profile.phone}@zoe.com`,
+            amount: Math.round(amt * 100),
+            currency: "NGN",
+            callback: function(response) {
+                closeModal('saveModal');
+                syncLoanContribution(amt);
+            }
+        });
+        handler.openIframe();
+    }
+
+    async function syncLoanContribution(amt) {
+        const numericAmt = parseFloat(amt);
+        const newLoanBal = parseFloat(profile.loan_balance || 0) + numericAmt;
+        const newLoanDays = parseInt(profile.loan_days || 0) + 1;
+
+        // 1. Update Profile (loan_balance and loan_days)
+        const { error: profileErr } = await client.from('profiles').update({ 
+            loan_balance: newLoanBal,
+            loan_days: newLoanDays
+        }).eq('id', user.id);
+
+        // 2. Log into loan_contributions
+        const { error: logErr } = await client.from('loan_contributions').insert([
+            { user_id: user.id, amount: numericAmt, status: 'success' }
+        ]);
+
+        if (!profileErr && !logErr) {
+            await triggerSMS(`Daily contribution of ₦${numericAmt.toLocaleString()} received. Day ${newLoanDays}/30.`, newLoanBal);
+            alert(`₦${numericAmt.toLocaleString()} Contribution Successful, Sir!`);
+            location.reload();
+        } else {
+            console.error("DB Error:", profileErr || logErr);
+            alert("Database Error. Check if RLS is disabled in Supabase.");
+        }
+    }
+
+    // --- PART 2: LOAN APPLICATION ---
+    function initiateLoanRequest() {
+        if (parseInt(profile.loan_days || 0) < 30) return alert("You must complete your 30-day streak first!");
+        openModal('applyModal');
+    }
+
+    function calculateFees() {
+        const amt = parseFloat(document.getElementById('requestAmount').value || 0);
+        const max = parseFloat(profile.loan_balance || 0) * 3;
+        if (amt <= 0 || amt > max) { document.getElementById('finalPayBtn').disabled = true; return; }
+        const interest = amt * 0.10;
+        const total = interest + 500;
+        document.getElementById('intVal').innerText = `₦${interest.toLocaleString()}`;
+        document.getElementById('totalPay').innerText = `₦${total.toLocaleString()}`;
+        document.getElementById('finalPayBtn').disabled = false;
+    }
+
+    function payInterestAndSubmit() {
+        const amt = document.getElementById('requestAmount').value;
+        const bank = document.getElementById('loanBank').value;
+        const acc = document.getElementById('loanAcc').value;
+
+        if (!amt || !bank || !acc) return alert("Please fill all fields, Boss.");
+
+        const fee = (parseFloat(amt) * 0.10) + 500;
+
+        const handler = PaystackPop.setup({
+            key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+            email: profile.email || `${profile.phone}@zoe.com`,
+            amount: Math.round(fee * 100),
+            currency: "NGN",
+            callback: function(response) {
+                closeModal('applyModal');
+                finalizeLoanApplication(amt, bank, acc);
+            }
+        });
+        handler.openIframe();
+    }
+
+    async function finalizeLoanApplication(amt, bank, acc) {
+        const { error } = await client.from('loan_requests').insert([{
+            user_id: user.id,
+            amount: parseFloat(amt),
+            interest_paid: true,
+            bank_name: bank,
+            account_number: acc,
+            status: 'pending'
+        }]);
+
+        if (!error) {
+            await triggerSMS(`Loan request of ₦${parseFloat(amt).toLocaleString()} submitted and is pending review.`, profile.balance);
+            alert("Loan application submitted successfully!");
+            location.reload();
+        } else {
+            alert("Submission error: " + error.message);
+        }
+    }
+
+    // --- PART 3: SMS HELPER (EXACT DASHBOARD STYLE) ---
+    async function triggerSMS(msgContent, currentBal) {
+        const msg = `Zoe Network: ${msgContent} Wallet Bal: ₦${currentBal}.`;
+        const url = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${profile.phone}&message=${encodeURIComponent(msg)}&gateway=2`;
+        
+        try {
+            await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
+        } catch (e) { console.log("SMS failed, but database updated."); }
+    }
+
+    function logout() { localStorage.clear(); window.location.href = 'index.html'; }
+</script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Network | Contributions</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #00b578; --primary-dark: #009663; --bg-color: #f4f5f7; --text-dark: #1a1a1a; --white: #ffffff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-color); margin: 0; padding-bottom: 90px; color: var(--text-dark); }
+        .header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); padding: 30px 20px 70px; color: var(--white); border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; text-align: center; }
+        .balance-amount { font-size: 38px; font-weight: 800; margin: 5px 0; }
+        .action-card { background: var(--white); width: 90%; margin: -40px auto 20px; padding: 20px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); position: relative; z-index: 10; }
+        .input-pay { width: 100%; padding: 15px; font-size: 18px; border: 1px solid #eee; border-radius: 12px; margin-bottom: 15px; outline: none; text-align: center; font-weight: 700; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-main { width: 100%; padding: 16px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; }
+        .btn-green { background: var(--primary); color: white; }
+        .btn-outline { background: #f9f9f9; color: var(--text-dark); border: 1px solid #eee; }
+        .section { padding: 0 20px; margin-top: 25px; }
+        .section-title { font-size: 14px; font-weight: 800; margin-bottom: 12px; display: flex; justify-content: space-between; }
+        .calendar-card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+        .day-label { font-size: 10px; font-weight: 800; color: #bbb; margin-bottom: 10px; }
+        .day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border-radius: 8px; background: #f4f5f7; }
+        .day.ticked { background: #e6f7f1; color: var(--primary); border: 1px solid var(--primary); position: relative; }
+        .day.ticked::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 7px; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); }
+        .prev-month-box { background: white; padding: 15px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border: 1px solid #eee; }
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0 25px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+        .nav-item { text-align: center; color: #bbb; font-size: 10px; text-decoration: none; }
+        .nav-item.active { color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="font-size:12px; opacity:0.9;">Total Contribution</div>
+        <div class="balance-amount" id="loanWalletBal">₦0.00</div>
+    </div>
+    <div class="action-card">
+        <input type="number" id="payAmount" class="input-pay" placeholder="Enter Amount">
+        <div class="btn-grid">
+            <button class="btn-main btn-green" onclick="payWithPaystack()">
+                <i class="fas fa-bolt"></i> Instant Transfer
+            </button>
+            <button class="btn-main btn-outline" onclick="payWithCash()">
+                <i class="fas fa-hand-holding-dollar"></i> I paid in Cash
+            </button>
+        </div>
+    </div>
+    <div class="section">
+        <div class="prev-month-box">
+            <div>
+                <small style="color:#888; font-weight: 700;">PREVIOUS MONTH TOTAL</small>
+                <div style="font-size: 18px; font-weight: 800; color: var(--primary);" id="prevMonthTotal">₦0.00</div>
+            </div>
+            <i class="fas fa-history" style="color: #eee; font-size: 24px;"></i>
+        </div>
+        <div class="section-title">
+            <span>Monthly Calendar</span>
+            <span id="currentMonthName" style="color: var(--primary);">Month</span>
+        </div>
+        <div class="calendar-card">
+            <div class="grid" id="calendarGrid"></div>
+        </div>
+    </div>
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item"><i class="fas fa-home" style="display:block; font-size:20px; margin-bottom:4px;"></i>Home</a>
+        <a href="contributions.html" class="nav-item active"><i class="fas fa-calendar-check" style="display:block; font-size:20px; margin-bottom:4px;"></i>Tick</a>
+        <a href="history.html" class="nav-item"><i class="fas fa-history" style="display:block; font-size:20px; margin-bottom:4px;"></i>History</a>
+    </nav>
+
+    <script>
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let user = JSON.parse(localStorage.getItem('zoe_user'));
+        let profile = null;
+
+        window.onload = async () => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            await loadData();
+        };
+
+        async function loadData() {
+            const { data: p } = await client.from('profiles').select('*').eq('id', user.id).single();
+            profile = p;
+            document.getElementById('loanWalletBal').innerText = `₦${(p.loan_wallet || 0).toLocaleString()}`;
+            
+            const now = new Date();
+            const startOfPrev = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+            const endOfPrev = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).toISOString();
+            const { data: prevLogs } = await client.from('contributions').select('amount').eq('user_id', user.id).eq('status', 'approved').gte('created_at', startOfPrev).lte('created_at', endOfPrev);
+            const total = prevLogs?.reduce((acc, curr) => acc + parseFloat(curr.amount), 0) || 0;
+            document.getElementById('prevMonthTotal').innerText = `₦${total.toLocaleString()}`;
+            renderCalendar();
+        }
+
+        async function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            document.getElementById('currentMonthName').innerText = now.toLocaleString('default', { month: 'long' });
+
+            const { data: ticks } = await client.from('contributions').select('created_at').eq('user_id', user.id).eq('status', 'approved').gte('created_at', new Date(year, month, 1).toISOString());
+            const tickedDays = ticks.map(t => new Date(t.created_at).getDate());
+
+            grid.innerHTML = ['S','M','T','W','T','F','S'].map(l => `<div class="day-label">${l}</div>`).join('');
+            for (let i = 0; i < firstDay; i++) { grid.innerHTML += `<div></div>`; }
+            for (let d = 1; d <= daysInMonth; d++) {
+                grid.innerHTML += `<div class="day ${tickedDays.includes(d) ? 'ticked' : ''}">${d}</div>`;
+            }
+        }
+
+        function payWithPaystack() {
+            const amt = document.getElementById('payAmount').value;
+            if (!amt || amt < 100) return alert("Minimum amount is ₦100");
+            const handler = PaystackPop.setup({
+                key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+                email: profile.email || `${profile.phone}@zoe.com`,
+                amount: Math.round(amt * 100),
+                currency: "NGN",
+                callback: function(response) { syncToDatabase(amt, 'approved', 'paystack'); }
+            });
+            handler.openIframe();
+        }
+
+        function payWithCash() {
+            const amt = document.getElementById('payAmount').value;
+            if (!amt || amt < 100) return alert("Minimum amount is ₦100");
+            if(confirm(`Confirm cash payment of ₦${parseFloat(amt).toLocaleString()}?`)) {
+                syncToDatabase(amt, 'pending', 'cash');
+            }
+        }
+
+        async function syncToDatabase(amt, status, type) {
+            const numericAmt = parseFloat(amt);
+            try {
+                if(status === 'approved') {
+                    const newWallet = parseFloat(profile.loan_wallet || 0) + numericAmt;
+                    await client.from('profiles').update({ loan_wallet: newWallet }).eq('id', user.id);
+                }
+                const { error } = await client.from('contributions').insert([{ user_id: user.id, amount: numericAmt, status: status, type: type }]);
+                if (error) throw error;
+                alert(status === 'approved' ? "Contribution Successful" : "Sent for verification");
+                location.reload();
+            } catch (e) { alert("Operation failed. Ensure database has 'type' column."); }
+        }
+    </script>
+</body>
+</html>

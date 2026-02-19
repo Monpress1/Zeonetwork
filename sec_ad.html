@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zoe Admin Console</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #00b578;
+            --bg: #f8f9fa;
+            --white: #ffffff;
+            --text: #1a1a1a;
+            --gray: #6c757d;
+            --border: #edf2f0;
+            --danger: #ff3b30;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 80px; }
+
+        .admin-header {
+            background: var(--white);
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .admin-header h1 { margin: 0; font-size: 18px; font-weight: 800; color: var(--primary); }
+
+        /* Updated Stats Grid to hold 6 items neatly */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 15px 20px;
+        }
+        .stat-card {
+            background: var(--white);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .stat-card small { color: var(--gray); font-size: 10px; font-weight: 700; text-transform: uppercase; display: block; white-space: nowrap; }
+        .stat-card div { font-size: 14px; font-weight: 800; margin-top: 5px; color: var(--text); }
+
+        .section { padding: 0 20px; }
+        .section-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+
+        .list-item {
+            background: var(--white);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .item-info b { display: block; font-size: 14px; }
+        .item-info span { font-size: 12px; color: var(--gray); }
+        .item-amount { text-align: right; font-weight: 700; color: var(--primary); }
+
+        .btn-action { background: var(--primary); color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 11px; cursor: pointer; }
+
+        .admin-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background: var(--white);
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0 25px;
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.03);
+            z-index: 100;
+        }
+        .nav-btn { position: relative; background: none; border: none; color: var(--gray); font-size: 10px; font-weight: 700; text-align: center; cursor: pointer; flex: 1; }
+        .nav-btn.active { color: var(--primary); }
+        .nav-btn i { font-size: 18px; display: block; margin-bottom: 4px; }
+        
+        /* Notification Badge CSS */
+        .nav-badge { position: absolute; top: -5px; right: calc(50% - 18px); background: var(--danger); color: white; border-radius: 50%; min-width: 16px; height: 16px; line-height: 16px; font-size: 9px; font-weight: 800; display: flex; justify-content: center; align-items: center; padding: 0 4px; box-shadow: 0 2px 4px rgba(255,59,48,0.3); }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: flex-end; }
+        .modal-content { 
+            background: var(--white); 
+            width: 100%; 
+            border-radius: 25px 25px 0 0; 
+            padding: 25px; 
+            max-height: 85vh; 
+            overflow-y: auto;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .detail-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+        .detail-row label { color: var(--gray); font-size: 13px; }
+        .detail-row span { font-weight: 600; font-size: 14px; }
+
+        .btn-approve { background: var(--primary); color: white; border: none; padding: 12px 15px; border-radius: 8px; font-weight: 700; width: 100%; margin-top: 15px; cursor: pointer; }
+
+        @media (min-width: 768px) {
+            .stats-container { grid-template-columns: repeat(6, 1fr); }
+            .modal-content { width: 400px; margin: auto; border-radius: 20px; align-self: center; }
+            .modal { align-items: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-header">
+        <h1><i class="fas fa-shield-alt"></i> Zoe Admin Console</h1>
+    </div>
+
+    <div id="dashboard-view" class="view-section">
+        <div class="stats-container">
+            <div class="stat-card"><small>Users</small><div id="stat-users">0</div></div>
+            <div class="stat-card"><small>Total Bal</small><div id="stat-bal">₦0</div></div>
+            <div class="stat-card"><small>Loan Bal</small><div id="stat-loan">₦0</div></div>
+            <div class="stat-card"><small>Daily Bal</small><div id="stat-daily">₦0</div></div>
+            <div class="stat-card"><small>Pending</small><div id="stat-pending">0</div></div>
+            <div class="stat-card"><small>Loans Req</small><div id="stat-req">0</div></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Connected Users <i class="fas fa-search" style="font-size: 14px; color: var(--gray);"></i></div>
+            <div id="user-list"></div>
+        </div>
+    </div>
+
+    <div id="verify-view" class="view-section section" style="display:none;">
+        <h2 style="margin-top:20px; font-size:16px;">Pending Contributions</h2>
+        <div id="verify-list"></div>
+    </div>
+
+    <div id="loans-view" class="view-section section" style="display:none;">
+        <h2 style="margin-top:20px; font-size:16px;">Loan Requests</h2>
+        <div id="loan-list"></div>
+    </div>
+
+    <div id="trans-view" class="view-section section" style="display:none;">
+        <h2 style="margin-top:20px; font-size:16px;">Recent Approved Ticks</h2>
+        <div id="trans-list"></div>
+    </div>
+
+    <div class="modal" id="userModal" onclick="if(event.target == this) closeModal()">
+        <div class="modal-content">
+            <div style="text-align:center; margin-bottom: 20px;">
+                <div style="width:60px; height:60px; background: #e6f7f1; color: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-size: 24px;">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h2 id="modal-user-name" style="margin:0;">User Info</h2>
+            </div>
+            <div id="modal-details"></div>
+            <button class="btn-approve" style="background:#f4f5f7; color:var(--text); border:1px solid #eee;" onclick="closeModal()">Close Console</button>
+        </div>
+    </div>
+
+    <nav class="admin-nav">
+        <button class="nav-btn active" onclick="nav('dashboard', this)"><i class="fas fa-users"></i>Users</button>
+        <button class="nav-btn" onclick="nav('verify', this)">
+            <i class="fas fa-check-circle"></i>Verify
+            <span class="nav-badge" id="badge-verify" style="display:none;">0</span>
+        </button>
+        <button class="nav-btn" onclick="nav('loans', this)">
+            <i class="fas fa-hand-holding-usd"></i>Loans
+            <span class="nav-badge" id="badge-loans" style="display:none;">0</span>
+        </button>
+        <button class="nav-btn" onclick="nav('trans', this)"><i class="fas fa-receipt"></i>Trans</button>
+        <button class="nav-btn" onclick="location.reload()"><i class="fas fa-sync"></i>Sync</button>
+    </nav>
+
+    <script>
+        window.onload = () => {
+    lockAdminConsole(); // 🔒 This locks the page immediately
+    loadAdminData();
+};
+
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // State trackers for notification badges
+        let currentTab = 'dashboard';
+        let pendingVerifyCount = 0;
+        let pendingLoansCount = 0;
+        let knownVerifyCount = 0;
+        let knownLoansCount = 0;
+
+        window.onload = () => loadAdminData();
+
+        async function loadAdminData() {
+            // Fetch all required data
+            const { data: users } = await client.from('profiles').select('*').order('full_name');
+            const { data: pendingCash } = await client.from('contributions').select('*, profiles(full_name, phone)').eq('status', 'pending').order('created_at', { ascending: false });
+            const { data: trans } = await client.from('contributions').select('*, profiles(full_name)').eq('status', 'approved').order('created_at', { ascending: false }).limit(100);
+            const { data: loans } = await client.from('loan_requests').select('*').order('created_at', { ascending: false });
+
+            // Render all UI components
+            renderUsers(users || []);
+            renderVerify(pendingCash || []);
+            renderTransactions(trans || []);
+            renderLoans(loans || []);
+        }
+        function lockAdminConsole() {
+    const MASTER_PIN = "2026"; // Change your PIN here
+    const authKey = 'zoe_admin_authorized';
+
+    // If already authorized in this session, don't show the lock
+    if (sessionStorage.getItem(authKey) === 'true') return;
+
+    // 1. Create the Lock Overlay
+    const lockOverlay = document.createElement('div');
+    lockOverlay.id = 'admin-lock-screen';
+    lockOverlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px); z-index: 99999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: 0.5s ease;
+    `;
+
+    // 2. Create the Lock UI
+    lockOverlay.innerHTML = `
+        <div style="text-align: center; width: 100%; max-width: 300px; padding: 20px;">
+            <div style="background: #1a1a1a; color: white; width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 24px; box-shadow: 0 10px 20px rgba(0,0,0,0.1);">
+                <i class="fas fa-lock"></i>
+            </div>
+            <h2 style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #1a1a1a;">Admin Locked</h2>
+            <p style="font-size: 13px; color: #666; margin-bottom: 25px;">Please enter your security PIN to access the Zoe Network Console.</p>
+            
+            <input type="password" id="adminPinInput" maxlength="4" placeholder="••••" 
+                style="width: 100%; padding: 18px; border-radius: 16px; border: 1px solid rgba(0,0,0,0.1); background: rgba(255,255,255,0.8); text-align: center; font-size: 24px; letter-spacing: 10px; outline: none; margin-bottom: 15px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);">
+            
+            <button id="unlockBtn" style="width: 100%; padding: 16px; background: #00b578; color: white; border: none; border-radius: 16px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 8px 15px rgba(0, 181, 120, 0.3);">
+                Unlock Console
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(lockOverlay);
+    document.body.style.overflow = 'hidden';
+
+    // 3. Logic to verify PIN
+    const input = document.getElementById('adminPinInput');
+    const btn = document.getElementById('unlockBtn');
+
+    const verify = () => {
+        if (input.value === MASTER_PIN) {
+            sessionStorage.setItem(authKey, 'true');
+            lockOverlay.style.opacity = '0';
+            setTimeout(() => {
+                lockOverlay.remove();
+                document.body.style.overflow = 'auto';
+            }, 500);
+        } else {
+            input.style.border = '1px solid #ff3b30';
+            input.value = '';
+            input.placeholder = "WRONG";
+            setTimeout(() => { input.placeholder = "••••"; input.style.border = '1px solid rgba(0,0,0,0.1)'; }, 1000);
+        }
+    };
+
+    btn.onclick = verify;
+    input.onkeypress = (e) => { if (e.key === 'Enter') verify(); };
+}
+
+        function renderUsers(data) {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            
+            let totalBal = 0; 
+            let totalLoanBal = 0;
+
+            data.forEach(u => {
+                // Combine balance from schema versions if needed
+                const userBal = parseFloat(u.balance || 0) + parseFloat(u.loan_wallet || 0);
+                const userLoanBal = parseFloat(u.loan_balance || 0);
+                
+                totalBal += userBal;
+                totalLoanBal += userLoanBal;
+                
+                list.innerHTML += `
+                    <div class="list-item" onclick='viewUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>
+                        <div class="item-info">
+                            <b>${u.full_name}</b>
+                            <span>${u.phone} • Streak: ${u.loan_days || 0}d</span>
+                        </div>
+                        <div class="item-amount">₦${userBal.toLocaleString()}</div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('stat-users').innerText = data.length;
+            document.getElementById('stat-bal').innerText = `₦${totalBal.toLocaleString()}`;
+            document.getElementById('stat-loan').innerText = `₦${totalLoanBal.toLocaleString()}`;
+        }
+
+        function renderVerify(data) {
+            const list = document.getElementById('verify-list');
+            
+            pendingVerifyCount = data.length;
+            document.getElementById('stat-pending').innerText = pendingVerifyCount;
+
+            // Notification Logic
+            const badge = document.getElementById('badge-verify');
+            if (pendingVerifyCount > knownVerifyCount && currentTab !== 'verify') {
+                badge.innerText = pendingVerifyCount;
+                badge.style.display = 'flex';
+            } else if (currentTab === 'verify') {
+                knownVerifyCount = pendingVerifyCount;
+            }
+            
+            if(data.length === 0) {
+                list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px; margin-top:30px;">No pending cash verifications.</p>';
+                return;
+            }
+
+            list.innerHTML = '';
+            data.forEach(c => {
+                list.innerHTML += `
+                    <div class="list-item" style="cursor:default;">
+                        <div class="item-info">
+                            <b>${c.profiles?.full_name || 'Unknown User'}</b>
+                            <span>₦${parseFloat(c.amount).toLocaleString()} • ${c.type.toUpperCase()}</span>
+                            <span style="font-size:10px; display:block; margin-top:3px;">${new Date(c.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <button class="btn-action" onclick="approvePendingCash('${c.id}', '${c.user_id}', ${c.amount}, '${c.profiles?.phone}')">Approve</button>
+                    </div>
+                `;
+            });
+        }
+
+        function renderTransactions(data) {
+            const list = document.getElementById('trans-list');
+            let dailyBal = 0;
+            const today = new Date().toISOString().split('T')[0];
+
+            if(data.length === 0) list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px;">No recent transactions.</p>';
+            else list.innerHTML = '';
+
+            data.forEach(t => {
+                // Calculate daily balance based on today's approved transactions
+                if (t.created_at.startsWith(today)) {
+                    dailyBal += parseFloat(t.amount || 0);
+                }
+
+                list.innerHTML += `
+                    <div class="list-item" style="cursor:default;">
+                        <div class="item-info">
+                            <b>${t.profiles?.full_name || 'User'}</b>
+                            <span>Tick: ₦${parseFloat(t.amount).toLocaleString()} (${t.type})</span>
+                        </div>
+                        <div style="font-size:11px; color:var(--primary); font-weight:800; text-align:right;">
+                            APPROVED<br>
+                            <span style="color:var(--gray); font-weight:400; font-size:9px;">${new Date(t.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Update Daily Bal Stat
+            document.getElementById('stat-daily').innerText = `₦${dailyBal.toLocaleString()}`;
+        }
+
+        function renderLoans(data) {
+            const list = document.getElementById('loan-list');
+            
+            // Count only pending loans for the stats counter
+            const pendingLoans = data.filter(l => l.status === 'pending');
+            pendingLoansCount = pendingLoans.length;
+            document.getElementById('stat-req').innerText = pendingLoansCount;
+
+            // Notification Logic
+            const badge = document.getElementById('badge-loans');
+            if (pendingLoansCount > knownLoansCount && currentTab !== 'loans') {
+                badge.innerText = pendingLoansCount;
+                badge.style.display = 'flex';
+            } else if (currentTab === 'loans') {
+                knownLoansCount = pendingLoansCount;
+            }
+            
+            if(!data || pendingLoans.length === 0) {
+                 list.innerHTML = '<p style="text-align:center; color:var(--gray); font-size:13px;">No pending loan requests.</p>';
+                 return;
+            }
+            
+            list.innerHTML = '';
+            pendingLoans.forEach(l => {
+                list.innerHTML += `
+                    <div class="list-item" style="cursor:default;">
+                        <div class="item-info">
+                            <b>Loan: ₦${parseFloat(l.amount).toLocaleString()}</b>
+                            <span>Bank: ${l.bank_name} (${l.account_number})</span>
+                        </div>
+                        <button class="btn-action" onclick="approveLoan('${l.id}')">Approve</button>
+                    </div>
+                `;
+            });
+        }
+
+        function viewUser(u) {
+            document.getElementById('modal-user-name').innerText = u.full_name;
+            const details = document.getElementById('modal-details');
+            
+            // Combine total balance based on existing schema formats
+            const totalWallet = parseFloat(u.balance || 0) + parseFloat(u.loan_wallet || 0);
+            
+            details.innerHTML = `
+                <div class="detail-row"><label>Main Wallet</label><span>₦${totalWallet.toLocaleString()}</span></div>
+                <div class="detail-row"><label>Loan Balance</label><span>₦${parseFloat(u.loan_balance || 0).toLocaleString()}</span></div>
+                <div class="detail-row"><label>Phone</label><span>${u.phone}</span></div>
+                <div class="detail-row"><label>Email</label><span>${u.email || 'N/A'}</span></div>
+                <div class="detail-row"><label>Streak</label><span>${u.loan_days || 0}/30 Days</span></div>
+                <div class="detail-row"><label>Joined</label><span>${new Date(u.created_at).toDateString()}</span></div>
+            `;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        // --- CORE APPROVAL LOGIC ---
+
+        async function approvePendingCash(contribId, userId, amount, phone) {
+            if(!confirm(`Confirm receiving ₦${amount.toLocaleString()} in cash?`)) return;
+
+            // 1. Get user's current wallet balance
+            const { data: p } = await client.from('profiles').select('loan_wallet').eq('id', userId).single();
+            const newBal = parseFloat(p.loan_wallet || 0) + parseFloat(amount);
+
+            // 2. Update their wallet balance
+            await client.from('profiles').update({ loan_wallet: newBal }).eq('id', userId);
+            
+            // 3. Update the contribution status to 'approved'
+            await client.from('contributions').update({ status: 'approved' }).eq('id', contribId);
+
+            // 4. Send SMS Notification
+            if (phone) {
+                const msg = `Zoe Network: Your cash payment of ₦${amount} has been verified. New Contribution Balance: ₦${newBal}.`;
+                const smsUrl = `https://my.kudisms.net/api/sms?token=WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK&senderID=ZOE NETWORK&recipients=${phone}&message=${encodeURIComponent(msg)}&gateway=2`;
+                fetch("https://corsproxy.io/?" + encodeURIComponent(smsUrl)).catch(e => console.log("SMS Error", e));
+            }
+
+            alert("Payment Verified Successfully.");
+            loadAdminData(); // Refresh UI
+        }
+
+        async function approveLoan(id) {
+            if(confirm("Mark loan as approved and paid?")) {
+                const { error } = await client.from('loan_requests').update({ status: 'approved' }).eq('id', id);
+                if(!error) { 
+                    alert("Loan Approved, Boss!"); 
+                    loadAdminData(); 
+                } else {
+                    alert("Error approving loan.");
+                }
+            }
+        }
+
+        // --- NAVIGATION & UTILS ---
+
+        function nav(section, btn) {
+            currentTab = section;
+
+            document.querySelectorAll('.view-section').forEach(el => el.style.display = 'none');
+            document.getElementById(section + '-view').style.display = 'block';
+            
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Notification clearing logic
+            if (section === 'verify') {
+                knownVerifyCount = pendingVerifyCount;
+                document.getElementById('badge-verify').style.display = 'none';
+            } else if (section === 'loans') {
+                knownLoansCount = pendingLoansCount;
+                document.getElementById('badge-loans').style.display = 'none';
+            }
+        }
+
+        function closeModal() { document.getElementById('userModal').style.display = 'none'; }
+    </script>
+</body>
+</html>
