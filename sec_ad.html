@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -177,11 +177,7 @@
     </nav>
 
     <script>
-        window.onload = () => {
-    lockAdminConsole(); // 🔒 This locks the page immediately
-    loadAdminData();
-};
-
+        
         const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
         const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
