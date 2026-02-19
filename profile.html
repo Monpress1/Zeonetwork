@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoe Network | My Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #004225; --accent: #2c6e49; --bg: #f8faf9; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding-bottom: 90px; color: #333; }
+        
+        /* HEADER */
+        .profile-header { background: var(--primary); padding: 40px 20px; color: white; text-align: center; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; }
+        .avatar-wrapper { width: 110px; height: 110px; margin: 0 auto 15px; position: relative; }
+        #avatarImg { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid white; background: #eee; }
+        .upload-btn { position: absolute; bottom: 5px; right: 5px; background: white; color: var(--primary); width: 32px; height: 32px; border-radius: 50%; display: none; align-items: center; justify-content: center; cursor: pointer; border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        /* FORM CONTAINER */
+        .content { width: 90%; max-width: 500px; margin: -20px auto 20px; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        
+        .section-title { font-size: 12px; font-weight: 800; color: var(--primary); text-transform: uppercase; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        
+        .field-group { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; color: #888; margin: 0 0 5px 5px; font-weight: 600; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #efefef; border-radius: 10px; background: #fcfcfc; font-size: 14px; box-sizing: border-box; color: #444; }
+        
+        /* Disable editing by default */
+        input:read-only, textarea:read-only, select:disabled { background: transparent; border-color: transparent; padding-left: 5px; font-weight: 500; color: #000; }
+
+        /* BUTTONS */
+        .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { flex: 1; padding: 15px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
+        .btn-edit { background: #e8f5e9; color: var(--primary); }
+        .btn-save { background: var(--primary); color: white; display: none; }
+        
+        /* BOTTOM NAV */
+        .bottom-nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 15px 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.05); }
+        .nav-item { text-align: center; color: #aaa; font-size: 11px; text-decoration: none; }
+        .nav-item i { font-size: 18px; margin-bottom: 4px; display: block; }
+        .active-nav { color: var(--primary); font-weight: bold; }
+
+        #loader { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:1000; align-items:center; justify-content:center; flex-direction:column; }
+    </style>
+</head>
+<body>
+
+    <div id="loader"><i class="fa fa-spinner fa-spin fa-2x" style="color:var(--primary)"></i><p>Syncing Profile...</p></div>
+
+    <div class="profile-header">
+        <div class="avatar-wrapper">
+            <img src="https://via.placeholder.com/110" id="avatarImg">
+            <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImg(this)">
+            <button class="upload-btn" id="camBtn" onclick="document.getElementById('fileInput').click()"><i class="fa fa-camera"></i></button>
+        </div>
+        <h2 id="displayTitle" style="margin:0;">Loading...</h2>
+        <p id="displayPhone" style="margin:5px 0 0; opacity:0.8; font-size:14px;"></p>
+    </div>
+
+    <div class="content">
+        <div class="card">
+            <div class="section-title">Personal Information</div>
+            <div class="field-group">
+                <label>Full Name</label>
+                <input type="text" id="full_name" readonly>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="field-group" style="flex:1">
+                    <label>Gender</label>
+                    <select id="gender" disabled>
+                        <option>Male</option>
+                        <option>Female</option>
+                    </select>
+                </div>
+                <div class="field-group" style="flex:1">
+                    <label>Date of Birth</label>
+                    <input type="date" id="dob" readonly>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <div class="field-group" style="flex:1">
+                    <label>State of Origin</label>
+                    <input type="text" id="state_of_origin" readonly>
+                </div>
+                <div class="field-group" style="flex:1">
+                    <label>Marital Status</label>
+                    <select id="marital_status" disabled>
+                        <option>Single</option>
+                        <option>Married</option>
+                        <option>Widowed</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="section-title">Contact & Occupation</div>
+            <div class="field-group">
+                <label>Residential Address</label>
+                <textarea id="residential_address" rows="2" readonly></textarea>
+            </div>
+            <div class="field-group">
+                <label>Email (Optional)</label>
+                <input type="email" id="email" readonly>
+            </div>
+            <div class="field-group">
+                <label>Occupation</label>
+                <input type="text" id="occupation" readonly>
+            </div>
+            <div class="field-group">
+                <label>Business Address</label>
+                <input type="text" id="business_address" readonly>
+            </div>
+
+            <div class="section-title">Next of Kin Details</div>
+            <div class="field-group">
+                <label>Next of Kin Name</label>
+                <input type="text" id="next_of_kin_name" readonly>
+            </div>
+            <div class="field-group">
+                <label>Next of Kin Phone</label>
+                <input type="tel" id="next_of_kin_phone" readonly>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-edit" id="editBtn" onclick="enableEdit()">
+                    <i class="fa fa-user-edit"></i> Edit Profile
+                </button>
+                <button class="btn btn-save" id="saveBtn" onclick="saveChanges()">
+                    <i class="fa fa-check-circle"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-nav">
+        <a href="dashboard.html" class="nav-item"><i class="fa fa-home"></i>Home</a>
+        <a href="loan.html" class="nav-item"><i class="fa fa-hand-holding-dollar"></i>Loan</a>
+        <a href="profile.html" class="nav-item active-nav"><i class="fa fa-user-circle"></i>Profile</a>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://bvnivavjmrmfnagwqvxc.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2bml2YXZqbXJtZm5hZ3dxdnhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyODE2NDksImV4cCI6MjA4Njg1NzY0OX0.KRKwRllUSm8lqJZQ1H68v9nQjXYh1fqw9qmlyAiFBS0';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        let user = JSON.parse(localStorage.getItem('zoe_user'));
+        let selectedFile = null;
+
+        window.onload = async () => {
+            if (!user) { window.location.href = 'index.html'; return; }
+            fetchProfile();
+        };
+
+        async function fetchProfile() {
+            const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
+            if (data) {
+                document.getElementById('displayTitle').innerText = data.full_name || "Zoe Member";
+                document.getElementById('displayPhone').innerText = data.phone;
+                if(data.avatar_url) document.getElementById('avatarImg').src = data.avatar_url;
+
+                // Map all fields
+                const fields = ['full_name', 'gender', 'dob', 'state_of_origin', 'marital_status', 'residential_address', 'email', 'occupation', 'business_address', 'next_of_kin_name', 'next_of_kin_phone'];
+                fields.forEach(f => {
+                    const el = document.getElementById(f);
+                    if(el) el.value = data[f] || '';
+                });
+            }
+        }
+
+        function enableEdit() {
+            // Show cam button and save button
+            document.getElementById('camBtn').style.display = 'flex';
+            document.getElementById('saveBtn').style.display = 'flex';
+            document.getElementById('editBtn').style.display = 'none';
+
+            // Make inputs editable
+            document.querySelectorAll('input, textarea').forEach(el => el.removeAttribute('readonly'));
+            document.querySelectorAll('select').forEach(el => el.removeAttribute('disabled'));
+            
+            // Highlight editable state
+            document.querySelectorAll('input, textarea, select').forEach(el => el.style.borderColor = '#004225');
+        }
+
+        function previewImg(input) {
+            if (input.files[0]) {
+                selectedFile = input.files[0];
+                document.getElementById('avatarImg').src = URL.createObjectURL(selectedFile);
+            }
+        }
+
+        async function saveChanges() {
+            const loader = document.getElementById('loader');
+            loader.style.display = 'flex';
+
+            let avatarUrl = document.getElementById('avatarImg').src;
+
+            try {
+                // Upload Image if changed
+                if (selectedFile) {
+                    const path = `${user.id}/${Date.now()}.jpg`;
+                    await client.storage.from('avatars').upload(path, selectedFile);
+                    const { data: urlData } = client.storage.from('avatars').getPublicUrl(path);
+                    avatarUrl = urlData.publicUrl;
+                }
+
+                const updates = {
+                    id: user.id,
+                    phone: user.email.split('@')[0],
+                    full_name: document.getElementById('full_name').value,
+                    gender: document.getElementById('gender').value,
+                    dob: document.getElementById('dob').value,
+                    state_of_origin: document.getElementById('state_of_origin').value,
+                    marital_status: document.getElementById('marital_status').value,
+                    residential_address: document.getElementById('residential_address').value,
+                    email: document.getElementById('email').value,
+                    occupation: document.getElementById('occupation').value,
+                    business_address: document.getElementById('business_address').value,
+                    next_of_kin_name: document.getElementById('next_of_kin_name').value,
+                    next_of_kin_phone: document.getElementById('next_of_kin_phone').value,
+                    avatar_url: avatarUrl,
+                    profile_complete: true
+                };
+
+                const { error } = await client.from('profiles').upsert(updates);
+                if (error) throw error;
+
+                alert("Profile Updated!");
+                location.reload(); // Refresh to go back to View Mode
+
+            } catch (err) {
+                alert("Update Failed: " + err.message);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
