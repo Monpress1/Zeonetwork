@@ -432,12 +432,15 @@ window.onload = async () => {
     await loadData();
 };
 
+// --- USER SIDE: REPLACE YOUR loadData FUNCTION ---
 async function loadData() {
-    // 1. Refresh Profile
+    // Force a fresh fetch from the database to ensure we get the NEW loan_days
     const { data: pData } = await client.from('profiles').select('*').eq('id', user.id).single();
-    profile = pData;
+    if (pData) {
+        profile = pData; // Update the global variable with fresh data
+    }
 
-    // 2. Refresh Active Loan
+    // Fetch the active loan
     const { data: lData } = await client.from('loan_requests')
         .select('*')
         .eq('user_id', user.id)
@@ -447,26 +450,66 @@ async function loadData() {
         .maybeSingle();
     activeLoan = lData;
 
-    // 3. NEW: Check if an interest payment was JUST approved by Admin
-    // This looks for an approved 'loan_interest' contribution that doesn't have an active loan yet
-    const { data: interestCheck } = await client.from('contributions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('category', 'loan_interest')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    // If interest is approved but no loan request exists yet, open the bank details modal
-    if (interestCheck && !activeLoan) {
-        calculatedLoan = profile.loan_balance * 3; // Re-calculate based on balance
-        document.getElementById('disburseAmtText').innerText = calculatedLoan.toLocaleString();
-        openModal('loanDetailsModal');
-    }
-
+    // Trigger UI Update
     updateUI();
 }
+
+function updateUI() {
+    const bal = parseFloat(profile.loan_balance || 0);
+    document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
+    document.getElementById('withdrawableBal').innerText = `₦${bal.toLocaleString()}`;
+
+    // Profile Info
+    const name = profile.full_name || "Zoe Member";
+    document.getElementById('topUserName').innerText = name;
+    document.getElementById('menuUserName').innerText = name;
+    document.getElementById('menuPhone').innerText = profile.phone;
+    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00b578&color=fff`;
+    document.getElementById('topProfilePic').src = avatar;
+    document.getElementById('menuProfilePic').src = avatar;
+
+    // 30-Day Maturity Logic
+    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
+    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
+    const progress = Math.min((diffDays / 30) * 100, 100);
+    
+    document.getElementById('progressBar').style.width = progress + '%';
+    document.getElementById('progressPercent').innerText = Math.round(progress) + '%';
+    document.getElementById('daysCounter').innerText = `${Math.min(diffDays, 30)} / 30 Days`;
+    document.getElementById('maturityStatus').innerText = diffDays >= 30 ? "You are eligible for 3x loan!" : `Save for ${30 - diffDays} more days to qualify.`;
+
+    // 90-Day Repayment UI (FIXED MATH)
+    if (activeLoan && activeLoan.status === 'approved') {
+        document.getElementById('activeLoanSection').style.display = 'block';
+        
+        const loanDay = Number(profile.loan_days) || 0;
+        const originalLoanAmount = Number(activeLoan.amount);
+        
+        // FIXED CALCULATION: Always divide original amount by 90
+        const baseDaily = originalLoanAmount / 90; 
+        const savingsDaily = baseDaily * 0.16; // Exactly 16% for savings
+        let totalDaily = baseDaily + savingsDaily;
+
+        // Calculate actual outstanding balance visually (Original Loan - what has been paid so far)
+        const outstandingBalance = originalLoanAmount - (baseDaily * loanDay);
+        document.getElementById('repayAmtDisplay').innerText = `₦${Math.max(0, outstandingBalance).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}`;
+        document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
+
+        // Late Penalty Check
+        const isLate = checkLateStatus(); 
+        if (isLate && loanDay > 0) {
+            totalDaily = totalDaily * 1.10; // 10% late fee applied
+            document.getElementById('penaltyLabel').style.display = 'block';
+        } else {
+            document.getElementById('penaltyLabel').style.display = 'none';
+        }
+
+        // Set global variable for Paystack/Cash handlers
+        currentRepayTotal = Math.round(totalDaily); 
+        document.getElementById('dailyAmtText').innerText = `₦${currentRepayTotal.toLocaleString()}`;
+    }
+}
+
 
 function updateUI() {
     const bal = parseFloat(profile.loan_balance || 0);
@@ -497,26 +540,27 @@ function updateUI() {
         document.getElementById('activeLoanSection').style.display = 'block';
         document.getElementById('repayAmtDisplay').innerText = `₦${parseFloat(activeLoan.amount).toLocaleString()}`;
         
-        const loanDay = profile.loan_days || 0;
+        const loanDay = Number(profile.loan_days) || 0;
         document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
 
-        // Calculate Daily Repayment
-        const baseDaily = activeLoan.amount / 90;
-        const savingsDaily = baseDaily * 0.20;
-        let totalDaily = baseDaily + savingsDaily;
+        // FIXED CALCULATION:
+        // amount / (90 - current_day) = base repayment
+        // then add 16% on top for savings
+        const daysLeft = 90 - loanDay;
+        if (daysLeft > 0) {
+            const baseDaily = activeLoan.amount / daysLeft;
+            const totalDaily = baseDaily / 0.84; // This ensures that after 16% is taken, the debt is cleared perfectly
 
-        // CHECK FOR LATE PENALTY (10%)
-        // If the user hasn't paid today (logic: if loan_days hasn't increased today)
-        // For simplicity, we check if they missed a day in the sequence
-        const isLate = checkLateStatus(); 
-        if (isLate) {
-            totalDaily = totalDaily + (totalDaily * 0.10);
-            document.getElementById('penaltyLabel').style.display = 'block';
+            // Late Penalty Check
+            const isLate = checkLateStatus(); 
+            const finalAmount = isLate ? (totalDaily * 1.10) : totalDaily;
+
+            if (isLate) document.getElementById('penaltyLabel').style.display = 'block';
+            document.getElementById('dailyAmtText').innerText = `₦${Math.round(finalAmount).toLocaleString()}`;
         }
-
-        document.getElementById('dailyAmtText').innerText = `₦${Math.round(totalDaily).toLocaleString()}`;
     }
 }
+
 // --- LOAN WORKFLOW FUNCTIONS ---
 
 function startLoanWorkflow() {
@@ -594,9 +638,10 @@ let currentRepayTotal = 0;
 async function handleDailyRepayment() {
     if (!activeLoan) return alert("No active loan found.");
 
-    // 1. Calculate Math
-    const baseDaily = activeLoan.amount / 90;
-    const savingsPortion = baseDaily * 0.20;
+    // FIXED MATH: Divide original amount by 90
+    const originalLoanAmount = Number(activeLoan.amount);
+    const baseDaily = originalLoanAmount / 90;
+    const savingsPortion = baseDaily * 0.16; // Exactly 16%
     let totalDue = baseDaily + savingsPortion;
 
     // Apply 10% penalty if late and past Day 0
@@ -606,7 +651,8 @@ async function handleDailyRepayment() {
 
     currentRepayTotal = Math.round(totalDue);
 
-    // 2. Update Modal UI and Open
+    // Update Modal UI and Open
+    // We update the modal's display to show the daily total, not the remaining loan balance
     document.getElementById('repayAmtDisplay').innerText = currentRepayTotal.toLocaleString();
     openModal('repayMethodModal');
 }
@@ -615,19 +661,21 @@ async function processRepaymentChoice(method) {
     closeModal('repayMethodModal');
 
     if (method === 'online') {
-        // Pass the calculated 'currentRepayTotal' directly
         payWithPaystack('repayment', currentRepayTotal);
     } else {
-        // Cash Logic
-        await client.from('contributions').insert([{
+        // CASH REPAYMENT
+        const { error } = await client.from('contributions').insert([{
             user_id: user.id,
             amount: currentRepayTotal,
             status: 'pending',
             type: 'cash',
-            category: 'loan_repayment'
+            category: 'loan_repayment' // <--- CRITICAL: Must match the Admin's check
         }]);
-        alert("Cash notification sent to Admin!");
-        location.reload();
+        
+        if(!error) {
+            showStatus("Cash Notified", "Admin will verify your payment and update your days.", "pending");
+            setTimeout(() => location.reload(), 2000);
+        }
     }
 }
 
@@ -639,36 +687,6 @@ function proceedToLoanDetails() {
 
 // --- UPDATED REPAYMENT LOGIC (With 10% Late Fee) ---
 
-async function processDailyRepayment(totalPaid) {
-    const baseAmount = activeLoan.amount / 90;
-    const savingsPortion = baseAmount * 0.20; // 20% of base goes back to savings
-
-    const newBal = (parseFloat(profile.loan_balance) || 0) + savingsPortion;
-    const newDayCount = (profile.loan_days || 0) + 1;
-
-    // Update Profile and Contribution Log
-    await client.from('profiles').update({
-        loan_balance: newBal,
-        loan_days: newDayCount,
-        updated_at: new Date().toISOString()
-    }).eq('id', user.id);
-
-    await client.from('contributions').insert({
-        user_id: user.id,
-        amount: totalPaid,
-        category: 'loan_repayment',
-        status: 'approved'
-    });
-
-    if (newDayCount >= 90) {
-        await client.from('loan_requests').update({ status: 'repaid' }).eq('id', activeLoan.id);
-        showStatus("Loan Finished!", "Congratulations, your loan is fully repaid.");
-    } else {
-        showStatus("Day " + newDayCount + " Paid", `₦${Math.round(savingsPortion)} added to your future savings.`);
-    }
-    
-    loadData();
-}
 
 // --- REPLACED ALERT WITH BEAUTIFIED STATUS ---
 
@@ -885,13 +903,14 @@ async function processOnlineRepayment(amt) {
 }
 
 async function processDailyRepayment(totalPaid) {
-    // 1. Math: Split the 20% back to savings
-    const baseAmount = activeLoan.amount / 90;
-    const savingsPortion = baseAmount * 0.20;
+    // 1. Math: Split the 16% back to savings using the FIXED 90-day division
+    const originalLoanAmount = Number(activeLoan.amount);
+    const baseAmount = originalLoanAmount / 90;
+    const savingsPortion = baseAmount * 0.16; // Exactly 16% goes back to savings
 
     // 2. Update Profile: New Balance + Increment Loan Day
     const newBal = (parseFloat(profile.loan_balance) || 0) + savingsPortion;
-    const newDayCount = (profile.loan_days || 0) + 1;
+    const newDayCount = (Number(profile.loan_days) || 0) + 1;
 
     await client.from('profiles').update({
         loan_balance: newBal,
@@ -907,15 +926,16 @@ async function processDailyRepayment(totalPaid) {
         status: 'approved'
     });
 
-    showStatus("Payment Confirmed", `Day ${newDayCount} complete! ₦${Math.round(savingsPortion)} added to your future savings.`);
-    
     if (newDayCount >= 90) {
         await client.from('loan_requests').update({ status: 'repaid' }).eq('id', activeLoan.id);
-        showStatus("Loan Fully Repaid!", "Congratulations! You can now apply for a higher limit.");
+        showStatus("Loan Fully Repaid!", "Congratulations! Your loan is fully repaid and you can apply for a higher limit.");
+    } else {
+        showStatus("Payment Confirmed", `Day ${newDayCount} complete! ₦${Math.round(savingsPortion)} added to your future savings.`);
     }
     
     loadData();
 }
+
 
 // --- HELPER UI FUNCTIONS ---
 function toggleMenu() {

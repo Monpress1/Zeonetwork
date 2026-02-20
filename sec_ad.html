@@ -271,30 +271,130 @@
 
         // --- UPDATED ACTION LOGIC ---
 
+// --- FIXED APPROVE PAYMENT ---
 async function approvePayment(id, uid, amt, category, phone) {
-    const { data: userProfile } = await client.from('profiles').select('*').eq('id', uid).single();
-    let updateData = {};
-    let msg = "";
+    if (!confirm(`Approve this payment of ₦${Number(amt).toLocaleString()}?`)) return;
 
-    if (category === 'loan_repayment') {
-        // Increment the day count upon approval
-        updateData.loan_days = (userProfile.loan_days || 0) + 1;
-        
-        // Add the 20% portion of the base repayment back to their loan_balance
-        const baseAmt = amt / 1.20; // Reversing the 20% markup to find base
-        const savingsAdded = baseAmt * 0.20;
-        updateData.loan_balance = (parseFloat(userProfile.loan_balance) || 0) + savingsAdded;
-        
-        msg = `Zoe: Cash repayment verified. You are now on Day ${updateData.loan_days}/90.`;
-    } 
-    // ... (keep your other category logic for loan_savings and main)
+    try {
+        // 1. Fetch user profile to get current savings and day count
+        const { data: profile, error: pError } = await client.from('profiles').select('*').eq('id', uid).single();
+        if (pError) throw new Error("Profile not found");
 
-    await client.from('profiles').update(updateData).eq('id', uid);
-    await client.from('contributions').update({ status: 'approved' }).eq('id', id);
-    
-    sendSms(phone, msg);
-    loadAllData();
+        let message = "";
+
+        if (category === 'loan_repayment') {
+            // --- LOAN REPAYMENT LOGIC ---
+            
+            // Get the current active loan
+            const { data: activeLoan } = await client.from('loan_requests')
+                .select('*')
+                .eq('user_id', uid)
+                .eq('status', 'approved')
+                .maybeSingle();
+
+            if (!activeLoan) throw new Error("No active loan found for this user.");
+
+            // MATH: 84% goes to loan, 16% goes to savings (as per your +16% request)
+            // If they pay 1000: 840 reduces debt, 160 goes to their savings wallet
+            const principalReduction = Number(amt) * 0.84; 
+            const savingsPortion = Number(amt) * 0.16; 
+
+            // Update Profile: Increment Day + Add the 16% to their Savings Balance
+            const nextDay = (Number(profile.loan_days) || 0) + 1;
+            await client.from('profiles').update({
+                loan_days: nextDay,
+                loan_balance: (Number(profile.loan_balance) || 0) + savingsPortion,
+                updated_at: new Date().toISOString()
+            }).eq('id', uid);
+
+            // Update Loan: Reduce the debt
+            const remainingDebt = Math.max(0, activeLoan.amount - principalReduction);
+            await client.from('loan_requests').update({
+                amount: remainingDebt,
+                status: remainingDebt <= 0 ? 'repaid' : 'approved'
+            }).eq('id', activeLoan.id);
+
+            message = `Zoe: Payment Approved! Day ${nextDay}/90. ₦${Math.round(savingsPortion)} added to your savings. Remaining debt: ₦${Math.round(remainingDebt).toLocaleString()}`;
+
+        } else {
+            // --- REGULAR SAVINGS APPROVAL ---
+            const newBal = (Number(profile.loan_balance) || 0) + Number(amt);
+            await client.from('profiles').update({ loan_balance: newBal }).eq('id', uid);
+            message = `Zoe: Your savings of ₦${Number(amt).toLocaleString()} has been approved. New balance: ₦${newBal.toLocaleString()}`;
+        }
+
+        // Finalize: Mark the contribution as approved
+        await client.from('contributions').update({ status: 'approved' }).eq('id', id);
+
+        await sendSms(phone, message);
+        alert("Payment processed successfully!");
+        loadAllData(); // Refresh admin list
+
+    } catch (err) {
+        console.error(err);
+        alert("Error: " + err.message);
+    }
 }
+
+
+async function runLateAudit() {
+    try {
+        const { data: activePayers, error } = await client.from('profiles')
+            .select('id, full_name, phone, updated_at, loan_days')
+            .gt('loan_days', 0); // Only people currently repaying
+
+        // FIX: Check if error exists or if data is empty/null
+        if (error) {
+            console.error("Audit Query Error:", error.message);
+            return;
+        }
+
+        if (!activePayers || activePayers.length === 0) {
+            console.log("Audit: No active payers found to check.");
+            return;
+        }
+
+        for (let u of activePayers) {
+            if (!u.updated_at) continue; // Skip if they haven't started yet
+
+            const lastUpdate = new Date(u.updated_at);
+            const hoursLate = Math.floor((new Date() - lastUpdate) / (1000 * 60 * 60));
+
+            // If late by 30 hours or more
+            if (hoursLate >= 30) {
+                const daysLate = Math.floor(hoursLate / 24);
+                await sendSms(u.phone, `URGENT Zoe: ${u.full_name}, you are ${daysLate} day(s) late. A 10% penalty is being added to your debt daily until you pay.`);
+                console.log(`Late alert sent to ${u.full_name} (${hoursLate}h late)`);
+            }
+        }
+    } catch (err) {
+        console.error("Unexpected Audit Crash:", err);
+    }
+}
+
+// --- FIXED LOAN DISBURSEMENT ---
+async function approveLoanDisbursement(id, uid, amt, phone) {
+    if(!confirm("Confirm Disbursement: Have you transferred the funds?")) return;
+
+    const { error: loanError } = await client.from('loan_requests')
+        .update({ 
+            status: 'approved',
+            disbursed_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+
+    if (loanError) return alert("Update failed");
+
+    await client.from('profiles').update({
+        loan_days: 0,
+        updated_at: new Date().toISOString()
+    }).eq('id', uid);
+
+    await sendSms(phone, `Zoe: Your loan of ₦${amt.toLocaleString()} is disbursed. Repayment starts at Day 0.`);
+    alert("Loan disbursed!");
+    loadAllData(); 
+}
+
 
 async function approveLoanDisbursement(id, uid, amt, phone) {
     if(!confirm("Confirm Disbursement: Have you transferred the funds? This starts the user at Day 0.")) return;
@@ -360,7 +460,6 @@ function filterQuickPayUsers() {
 async function confirmManualTick(uid, name, currentDay) {
     if (!confirm(`Mark Day ${currentDay + 1} as paid for ${name}?`)) return;
 
-    // 1. Fetch User Profile and Loan in one go
     const { data: profile } = await client.from('profiles').select('*').eq('id', uid).single();
     
     const { data: loan } = await client.from('loan_requests')
@@ -373,20 +472,17 @@ async function confirmManualTick(uid, name, currentDay) {
 
     if (!loan) return alert("User has no active approved loan.");
 
-    // 2. Perform Math
     const baseDaily = loan.amount / 90;
     const savingsToReturn = baseDaily * 0.20;
     const newDay = (currentDay || 0) + 1;
     const newLoanBal = (parseFloat(profile.loan_balance) || 0) + savingsToReturn;
 
-    // 3. Update Database
     const { error } = await client.from('profiles').update({
         loan_days: newDay,
         loan_balance: newLoanBal
     }).eq('id', uid);
 
     if (!error) {
-        // 4. Record Transaction
         await client.from('contributions').insert([{
             user_id: uid,
             amount: baseDaily * 1.20,
@@ -395,23 +491,19 @@ async function confirmManualTick(uid, name, currentDay) {
             category: 'loan_repayment'
         }]);
 
-        // 5. FIXED: Close Modal logic
-        // We target the specific floating div ID
-        const modal = document.getElementById('adminQuickPayModal');
-        if (modal) modal.style.display = 'none';
+        document.getElementById('adminQuickPayModal').style.display = 'none';
 
-        // 6. FIXED: Send SMS using the phone from the profile we fetched
+        // Use the global helper we just fixed
         if (profile.phone) {
             await sendSms(profile.phone, `Zoe Admin: Day ${newDay} payment confirmed. ₦${Math.round(savingsToReturn)} added to your wallet.`);
         }
 
         alert(`${name} is now on Day ${newDay}.`);
-        loadAllData(); // Refresh main dashboard
+        loadAllData();
     } else {
         alert("Update failed: " + error.message);
     }
 }
-
 
 
         async function approveWithdrawal(id, uid, amt, phone) {
@@ -423,22 +515,52 @@ async function confirmManualTick(uid, name, currentDay) {
             loadAllData();
         }
 
+        
         async function manualTopup(uid, name, phone) {
-            const type = prompt(`Top up for ${name}\nType '1' for Main Balance\nType '2' for Loan Balance`);
-            if(!type) return;
-            const amt = prompt("Enter Amount:");
-            if(!amt || isNaN(amt)) return alert("Invalid amount");
+    const type = prompt(`Top up for ${name}\nType '1' for Main Balance\nType '2' for Loan Balance`);
+    if(!type) return;
 
-            let updateData = {};
-            if(type === '1') updateData.balance = (allUsers.find(u => u.id === uid).balance || 0) + parseFloat(amt);
-            else if(type === '2') updateData.loan_balance = (allUsers.find(u => u.id === uid).loan_balance || 0) + parseFloat(amt);
-            else return alert("Invalid type");
+    const amt = prompt("Enter Amount:");
+    if(!amt || isNaN(amt)) return alert("Invalid amount");
 
-            await client.from('profiles').update(updateData).eq('id', uid);
-            sendSms(phone, `Zoe Admin: Your account has been manually credited with ₦${amt}.`);
-            loadAllData();
-        }
+    const parsedAmt = parseFloat(amt);
+    const userProfile = allUsers.find(u => u.id === uid);
+    
+    let updateData = {};
+    let newTotal = 0;
+    let balanceType = "";
 
+    // 1. Calculate the new total based on the selection
+    if (type === '1') {
+        newTotal = (Number(userProfile.balance) || 0) + parsedAmt;
+        updateData.balance = newTotal;
+        balanceType = "Main Wallet";
+    } else if (type === '2') {
+        newTotal = (Number(userProfile.loan_balance) || 0) + parsedAmt;
+        updateData.loan_balance = newTotal;
+        balanceType = "Loan Wallet";
+    } else {
+        return alert("Invalid type selection.");
+    }
+
+    // 2. Update the database
+    const { error } = await client.from('profiles').update(updateData).eq('id', uid);
+
+    if (!error) {
+        // 3. Send SMS with the specific balance updated and the new total
+        const message = `Zoe Admin: Your ${balanceType} has been credited with ₦${parsedAmt.toLocaleString()}. New balance: ₦${newTotal.toLocaleString()}.`;
+        
+        await sendSms(phone, message);
+
+        alert(`Success! ${name}'s ${balanceType} is now ₦${newTotal.toLocaleString()}.`);
+        loadAllData();
+    } else {
+        alert("Database update failed: " + error.message);
+    }
+}
+
+        
+        
         async function deleteRecord(table, id) {
             if(!confirm("Are you sure you want to decline/delete this request?")) return;
             await client.from(table).delete().eq('id', id);
@@ -446,14 +568,42 @@ async function confirmManualTick(uid, name, currentDay) {
         }
 
         async function sendSms(phone, msg) {
-            try {
-                fetch(`${SUPABASE_URL}/functions/v1/Sms`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
-                    body: JSON.stringify({ phone, message: msg })
-                });
-            } catch(e) { console.error("SMS skip", e); }
-        }
+    if (!phone) {
+        console.error("SMS Error: No phone number provided.");
+        return;
+    }
+
+    // Clean the phone number (Convert 080... to 23480...)
+    let cleanPhone = phone.toString().replace(/\D/g, ''); 
+    if (cleanPhone.startsWith('0')) {
+        cleanPhone = '234' + cleanPhone.substring(1);
+    }
+
+    console.log(`Sending SMS to ${cleanPhone}...`);
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/Sms`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${SUPABASE_KEY}` 
+            },
+            body: JSON.stringify({ 
+                phone: cleanPhone, 
+                to: cleanPhone, // Added 'to' as an alias to satisfy gateway requirements
+                message: msg 
+            })
+        });
+        
+        const result = await response.text();
+        console.log("SMS Gateway Result:", result);
+        return result;
+    } catch(e) { 
+        console.error("SMS skip due to network error", e); 
+    }
+}
+
+
     </script>
 </body>
 </html>
