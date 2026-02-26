@@ -114,7 +114,7 @@
             width: 45px;
             height: 45px;
             border-radius: 12px;
-            displayCardex;
+            display: flex;
             justify-content: center;
             align-items: center;
             font-size: 18px;
@@ -343,7 +343,7 @@
             <label class="input-label">AMOUNT (₦)</label>
             <input type="number" id="saveAmount" class="input-pay" placeholder="Enter Amount">
         </div>
-        <button class="btn-main btn-green" onclick="payWithPaystack('savings')">Pay Now (Instant)</button>
+        <button class="btn-main btn-green" onclick="payWithPaystack('savings')">Pay Now (instant)</button>
         <button class="btn-main btn-gray" onclick="submitCashPayment('savings')">I Paid Cash</button>
         <button class="btn-main" style="background:none;" onclick="closeModal('saveModal')">Cancel</button>
     </div>
@@ -375,7 +375,7 @@
             <h2 style="margin:5px 0; color:var(--primary);">Pay ₦<span id="interestAmt">0</span></h2>
             <p style="margin:0; font-size:11px; color:#666;">(10% interest pre-paid to admin)</p>
         </div>
-        <button class="btn-main btn-green" onclick="payWithPaystack('interest')">Pay with Card</button>
+        <button class="btn-main btn-green" onclick="payWithPaystack('interest')">instant pay</button>
         <button class="btn-main btn-gray" onclick="submitCashPayment('interest')">I Paid Cash</button>
         <button class="btn-main" style="background:none;" onclick="closeModal('interestModal')">Cancel</button>
     </div>
@@ -403,6 +403,22 @@
         </div>
     </div>
 </div>
+<div id="paymentMethodModal" class="modal" style="display:none; position:fixed; z-index:1000; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; width:90%; max-width:400px; border-radius:15px; text-align:center; position:relative;">
+        <span onclick="closeModal('paymentMethodModal')" style="position:absolute; right:15px; top:10px; font-size:24px; cursor:pointer;">&times;</span>
+        <h3 id="payModalTitle" style="margin-top:0;">Choose Payment Method</h3>
+        <p id="payModalDesc" style="color:#666; margin-bottom:20px;">Select how you want to process this transaction.</p>
+        
+        <div style="display:flex; flex-direction:column; gap:10px;">
+            <button onclick="executePayment('online')" style="background:#00b578; color:white; padding:15px; border:none; border-radius:10px; font-weight:bold; font-size:16px; cursor:pointer;">
+                <i class="fas fa-credit-card"></i> Pay Online (Instant)
+            </button>
+            <button onclick="executePayment('cash')" style="background:#f0f0f0; color:#1a1a1a; padding:15px; border:none; border-radius:10px; font-weight:bold; font-size:16px; cursor:pointer;">
+                <i class="fas fa-money-bill-wave"></i> Pay via Cash / Transfer
+            </button>
+        </div>
+    </div>
+</div>
 
 
     <nav class="bottom-nav">
@@ -423,6 +439,11 @@ let profile = null;
 let activeLoan = null;
 let calculatedLoan = 0;
 let calculatedInterest = 0;
+let currentRepayTotal = 0;
+let pendingAction = null; 
+let pendingAmount = 0;
+
+
 
 window.onload = async () => {
     if (!user) {
@@ -431,33 +452,226 @@ window.onload = async () => {
     }
     await loadData();
 };
+async function canWithdraw(userId = (user && user.id)) {
+  if (!userId) {
+    return { allowed: false, reason: 'Not authenticated' };
+  }
 
-// --- USER SIDE: REPLACE YOUR loadData FUNCTION ---
-async function loadData() {
-    // Force a fresh fetch from the database to ensure we get the NEW loan_days
-    const { data: pData } = await client.from('profiles').select('*').eq('id', user.id).single();
-    if (pData) {
-        profile = pData; // Update the global variable with fresh data
+  try {
+    // Get latest loan that is not repaid
+    const { data: loan, error } = await client
+      .from('loan_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .neq('status', 'repaid')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    // If no active loan found → allow withdrawal
+    if (!loan) {
+      return { allowed: true };
     }
 
-    // Fetch the active loan
+    // If loan exists and status is NOT repaid → block
+    return {
+      allowed: false,
+      reason: 'Active loan exists. Clear loan first.'
+    };
+
+  } catch (err) {
+    console.error('canWithdraw error:', err);
+    return {
+      allowed: false,
+      reason: 'Error checking loan status'
+    };
+  }
+}
+async function refreshActiveLoan() {
+  const { data, error } = await client
+    .from('loan_requests')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'approved')
+    .maybeSingle();
+
+  if (error) {
+    console.error('refreshActiveLoan error:', error);
+    activeLoan = null;
+    return;
+  }
+
+  // If loan is completed (90 days reached)
+  if (data && Number(profile.loan_days) >= 90) {
+    await client.from('loan_requests')
+      .update({
+        status: 'repaid',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', data.id);
+
+    activeLoan = null;
+
+    // 🔥 refresh profile & UI immediately
+    await refreshProfile();
+    updateLoanUI();
+
+    return;
+  }
+
+  activeLoan = data || null;
+  updateLoanUI();
+}
+
+function updateLoanUI() {
+  const repaymentSection = document.getElementById('loanRepaymentSection');
+  const loanMessage = document.getElementById('loanStatusMessage');
+  const withdrawBtn = document.getElementById('withdrawBtn');
+
+  if (activeLoan) {
+    // Loan still active
+    if (repaymentSection) repaymentSection.style.display = 'block';
+    if (loanMessage) loanMessage.innerText = 'Loan repayment in progress.';
+    if (withdrawBtn) withdrawBtn.style.display = 'none';
+  } else {
+    // Loan completed
+    if (repaymentSection) repaymentSection.style.display = 'none';
+    if (loanMessage) loanMessage.innerText = 'Loan completed. You can now withdraw your loan savings.';
+    if (withdrawBtn) withdrawBtn.style.display = 'block';
+  }
+}
+async function finalizeLoanIfNeeded(loanRow) {
+  // loanRow: object returned from loan_requests DB
+  try {
+    if (!loanRow) return false;
+    const remaining = Number(loanRow.remaining_amount || 0);
+    if (remaining > 0) return false;
+
+    // mark repaid in DB
+    const { error } = await client.from('loan_requests')
+      .update({ status: 'repaid', remaining_amount: 0, updated_at: new Date().toISOString() })
+      .eq('id', loanRow.id);
+
+    if (error) throw error;
+
+    activeLoan = null; // clear in-memory
+    // refresh profile to pick up changes
+    await refreshProfile();
+
+    if (profile?.phone) {
+      try { await sendSms(profile.phone, `Zoe: 🎉 Your loan has been fully repaid.`); } catch(e){ /* ignore sms error */ }
+    }
+
+    if (typeof updateUI === 'function') updateUI();
+    return true;
+  } catch (err) {
+    console.error('finalizeLoanIfNeeded error', err);
+    throw err;
+  }
+}
+async function loadData() {
+    // 1. Fetch Profile
+    const { data: pData } = await client.from('profiles').select('*').eq('id', user.id).single();
+    if (pData) profile = pData;
+
+    // 2. Fetch Active Loan
     const { data: lData } = await client.from('loan_requests')
         .select('*')
         .eq('user_id', user.id)
         .neq('status', 'repaid')
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
     activeLoan = lData;
 
-    // Trigger UI Update
+    // 3. CHECK FOR APPROVED INTEREST WITHOUT A SUBMITTED LOAN
+    const { data: interestCheck } = await client.from('contributions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('category', 'loan_interest')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    // Logic: If user paid interest, it's approved, BUT no loan request exists yet...
+    if (interestCheck && !activeLoan) {
+        // Trigger the bank details modal automatically
+        calculatedLoan = parseFloat(profile.loan_balance) * 3;
+        document.getElementById('disburseAmtText').innerText = calculatedLoan.toLocaleString();
+        
+        // Use a small timeout so the UI finishes loading before popping the modal
+        setTimeout(() => {
+            openModal('loanDetailsModal');
+        }, 1000);
+    }
+
     updateUI();
 }
 
+
+async function submitWithdrawalRequest() {
+  try {
+    await refreshProfile();
+    await refreshActiveLoan(); // <-- Check one last time before submitting
+
+    // SECURITY BLOCK
+    if (activeLoan) {
+        alert('Security Block: You cannot withdraw savings while you have a pending or active loan.');
+        closeModal('withdrawModal');
+        return;
+    }
+
+    const amount = Number(document.getElementById('withdrawAmount').value || 0);
+    if (!amount || amount <= 0) return alert('Enter a valid withdrawal amount.');
+    if (amount > Number(profile.loan_balance || 0)) return alert('Cannot withdraw more than your available loan-savings.');
+
+    const bank = document.getElementById('wBankName')?.value || 'Check Profile';
+    const acc = document.getElementById('wAccNum')?.value || 'Check Profile';
+    const accName = document.getElementById('wAccName')?.value || '';
+
+    // Insert withdrawal request into database
+    const { error: wErr } = await client.from('withdrawals').insert({
+      user_id: user.id,
+      amount,
+      bank_name: bank,
+      account_number: acc,
+      account_name: accName,
+      status: 'pending',
+      category: 'loan_savings_withdrawal',
+      created_at: new Date().toISOString()
+    });
+    if (wErr) throw wErr;
+
+    // Deduct locally so UI shows the new balance immediately
+    const newBal = Math.max(0, Number(profile.loan_balance || 0) - amount);
+    await client.from('profiles').update({ 
+        loan_balance: newBal, 
+        updated_at: new Date().toISOString() 
+    }).eq('id', user.id);
+
+    // Refresh everything and update the UI
+    await refreshProfile();
+    closeModal('withdrawModal');
+    if (typeof updateUI === 'function') updateUI();
+
+    alert(`Withdrawal request for ₦${amount.toLocaleString()} submitted. Admin will process it.`);
+    return { success: true };
+    
+  } catch (err) {
+    console.error('submitWithdrawalRequest error', err);
+    alert('Failed to submit withdrawal: ' + (err.message || err));
+    throw err;
+  }
+}
+
 function updateUI() {
-    const bal = parseFloat(profile.loan_balance || 0);
-    document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
-    document.getElementById('withdrawableBal').innerText = `₦${bal.toLocaleString()}`;
+    if (!profile) return;
+
+    // Balances
+    const loanBal = parseFloat(profile.loan_balance || 0);
+    document.getElementById('loanBalDisplay').innerText = `₦${loanBal.toLocaleString()}`;
+    document.getElementById('withdrawableBal').innerText = `₦${loanBal.toLocaleString()}`;
 
     // Profile Info
     const name = profile.full_name || "Zoe Member";
@@ -468,533 +682,580 @@ function updateUI() {
     document.getElementById('topProfilePic').src = avatar;
     document.getElementById('menuProfilePic').src = avatar;
 
-    // 30-Day Maturity Logic
-    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
-    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
+    // --- 30-Day Maturity Logic (L.E.G A.C.Y Core) ---
+    // Uses loan_savings_start if exists, else defaults to profile creation date
+    const startDate = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
+    const diffTime = Math.abs(new Date() - startDate);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     const progress = Math.min((diffDays / 30) * 100, 100);
     
     document.getElementById('progressBar').style.width = progress + '%';
     document.getElementById('progressPercent').innerText = Math.round(progress) + '%';
     document.getElementById('daysCounter').innerText = `${Math.min(diffDays, 30)} / 30 Days`;
-    document.getElementById('maturityStatus').innerText = diffDays >= 30 ? "You are eligible for 3x loan!" : `Save for ${30 - diffDays} more days to qualify.`;
-
-    // 90-Day Repayment UI (FIXED MATH)
-    if (activeLoan && activeLoan.status === 'approved') {
-        document.getElementById('activeLoanSection').style.display = 'block';
-        
-        const loanDay = Number(profile.loan_days) || 0;
-        const originalLoanAmount = Number(activeLoan.amount);
-        
-        // FIXED CALCULATION: Always divide original amount by 90
-        const baseDaily = originalLoanAmount / 90; 
-        const savingsDaily = baseDaily * 0.16; // Exactly 16% for savings
-        let totalDaily = baseDaily + savingsDaily;
-
-        // Calculate actual outstanding balance visually (Original Loan - what has been paid so far)
-        const outstandingBalance = originalLoanAmount - (baseDaily * loanDay);
-        document.getElementById('repayAmtDisplay').innerText = `₦${Math.max(0, outstandingBalance).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 2})}`;
-        document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
-
-        // Late Penalty Check
-        const isLate = checkLateStatus(); 
-        if (isLate && loanDay > 0) {
-            totalDaily = totalDaily * 1.10; // 10% late fee applied
-            document.getElementById('penaltyLabel').style.display = 'block';
-        } else {
-            document.getElementById('penaltyLabel').style.display = 'none';
-        }
-
-        // Set global variable for Paystack/Cash handlers
-        currentRepayTotal = Math.round(totalDaily); 
-        document.getElementById('dailyAmtText').innerText = `₦${currentRepayTotal.toLocaleString()}`;
-    }
-}
-
-
-function updateUI() {
-    const bal = parseFloat(profile.loan_balance || 0);
-    document.getElementById('loanBalDisplay').innerText = `₦${bal.toLocaleString()}`;
-    document.getElementById('withdrawableBal').innerText = `₦${bal.toLocaleString()}`;
-
-    // Profile Info
-    const name = profile.full_name || "Zoe Member";
-    document.getElementById('topUserName').innerText = name;
-    document.getElementById('menuUserName').innerText = name;
-    document.getElementById('menuPhone').innerText = profile.phone;
-    const avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=00b578&color=fff`;
-    document.getElementById('topProfilePic').src = avatar;
-    document.getElementById('menuProfilePic').src = avatar;
-
-    // 30-Day Maturity Logic
-    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
-    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
-    const progress = Math.min((diffDays / 30) * 100, 100);
     
-    document.getElementById('progressBar').style.width = progress + '%';
-    document.getElementById('progressPercent').innerText = Math.round(progress) + '%';
-    document.getElementById('daysCounter').innerText = `${Math.min(diffDays, 30)} / 30 Days`;
-    document.getElementById('maturityStatus').innerText = diffDays >= 30 ? "You are eligible for 3x loan!" : `Save for ${30 - diffDays} more days to qualify.`;
-
-    // 90-Day Repayment UI
-    if (activeLoan && activeLoan.status === 'approved') {
-        document.getElementById('activeLoanSection').style.display = 'block';
-        document.getElementById('repayAmtDisplay').innerText = `₦${parseFloat(activeLoan.amount).toLocaleString()}`;
-        
-        const loanDay = Number(profile.loan_days) || 0;
-        document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
-
-        // FIXED CALCULATION:
-        // amount / (90 - current_day) = base repayment
-        // then add 16% on top for savings
-        const daysLeft = 90 - loanDay;
-        if (daysLeft > 0) {
-            const baseDaily = activeLoan.amount / daysLeft;
-            const totalDaily = baseDaily / 0.84; // This ensures that after 16% is taken, the debt is cleared perfectly
-
-            // Late Penalty Check
-            const isLate = checkLateStatus(); 
-            const finalAmount = isLate ? (totalDaily * 1.10) : totalDaily;
-
-            if (isLate) document.getElementById('penaltyLabel').style.display = 'block';
-            document.getElementById('dailyAmtText').innerText = `₦${Math.round(finalAmount).toLocaleString()}`;
-        }
+    if (diffDays >= 30) {
+        document.getElementById('maturityStatus').innerText = "Eligibility Met: You can now access 3x your savings!";
+        document.getElementById('maturityStatus').style.color = "var(--primary)";
+    } else {
+        document.getElementById('maturityStatus').innerText = `Save for ${30 - diffDays} more days to qualify for a loan.`;
     }
+
+    // --- 90-Day Repayment UI Logic ---
+    
+    if (activeLoan && activeLoan.status === 'approved') {
+    document.getElementById('activeLoanSection').style.display = 'block';
+    
+    const loanDay = Number(profile.loan_days || 0);
+    
+    // CRITICAL FIX: We now pull from a fixed column that NEVER shrinks.
+    // Ensure you create 'original_amount' in your Supabase table!
+    const originalLoanAmount = Number(activeLoan.original_amount || activeLoan.amount); 
+    
+    // Fixed Math: Divides the strictly ORIGINAL amount by 90.
+    const baseDaily = originalLoanAmount / 90; 
+    
+    // 20% of the daily principal goes straight to loan savings
+    const savingsDaily = baseDaily * 0.20; 
+    
+    // Penalty Check (6 hour grace after 24 hours - total 30 hours)
+    const lastUpdate = new Date(profile.updated_at || profile.created_at);
+    const hoursSince = Math.floor((new Date() - lastUpdate) / (1000 * 60 * 60));
+    
+    let penaltyMultiplier = 1;
+    if (hoursSince > 30 && loanDay > 0) {
+        penaltyMultiplier = 1.10; // 10% penalty on the total
+        document.getElementById('penaltyLabel').style.display = 'block';
+    } else {
+        document.getElementById('penaltyLabel').style.display = 'none';
+    }
+
+    // Final Calculation locked in
+    currentRepayTotal = Math.round((baseDaily + savingsDaily) * penaltyMultiplier); 
+    
+    // Display remaining debt (Original - What has been paid)
+    const outstanding = originalLoanAmount - (baseDaily * loanDay);
+    
+    document.getElementById('repayAmtDisplay').innerText = `₦${Math.max(0, outstanding).toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+    document.getElementById('loanDayBadge').innerText = `Day ${loanDay}/90`;
+    document.getElementById('dailyAmtText').innerText = `₦${currentRepayTotal.toLocaleString()}`;
+}
+    
 }
 
-// --- LOAN WORKFLOW FUNCTIONS ---
 
+async function userDailyLoanPayment() {
+    // 1. Get logged-in user
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    if (!currentUser?.id) return console.warn("User not logged in.");
+
+    const uid = currentUser.id;
+
+    try {
+        // 2. Fetch user's profile and approved loan
+        const { data: profile } = await client.from('profiles').select('*').eq('id', uid).single();
+        const { data: loan } = await client.from('loan_requests')
+            .select('*')
+            .eq('user_id', uid)
+            .eq('status', 'approved')
+            .maybeSingle();
+
+        if (!loan) return alert("No active approved loan found.");
+
+        // 3. Determine how many days have passed since last payment
+        const lastPaymentDate = new Date(profile.updated_at || loan.disbursed_at);
+        const today = new Date();
+        const diffDays = Math.floor((today - lastPaymentDate) / (1000*60*60*24));
+
+        if (diffDays <= 0) {
+            alert("You have already paid today.");
+            return;
+        }
+
+        // 4. Calculate amounts
+        const principal = Number(loan.amount);
+        const dailyPrincipal = principal / 90;
+        const savingsPercent = 0.20; // 20% to savings
+        const lateFeePercent = 0.10; // 10% late fee per missed day
+
+        // Total due for all missed days
+        const totalDue = dailyPrincipal * (1 + savingsPercent + lateFeePercent) * diffDays;
+
+        // Portion that goes into loan balance / savings
+        const savingsToAdd = dailyPrincipal * savingsPercent * diffDays;
+
+        // 5. Update profile
+        const newLoanDays = (profile.loan_days || 0) + diffDays;
+        const newLoanBalance = (profile.loan_balance || 0) + savingsToAdd;
+
+        await client.from('profiles').update({
+            loan_days: newLoanDays,
+            loan_balance: newLoanBalance,
+            updated_at: new Date().toISOString()
+        }).eq('id', uid);
+
+        // 6. Record contribution (for logs)
+        await client.from('contributions').insert([{
+            user_id: uid,
+            amount: totalDue,
+            status: 'approved',
+            type: 'cash',
+            category: 'loan_repayment'
+        }]);
+
+        // 7. Notify user
+        if (profile.phone) {
+            await sendSms(profile.phone, `Zoe: Payment for ${diffDays} day(s) confirmed. Total paid: ₦${totalDue.toFixed(2)} (includes savings & late fee).`);
+        }
+
+        alert(`Success! Payment recorded for ${diffDays} day(s). Total: ₦${totalDue.toFixed(2)}`);
+    } catch (err) {
+        console.error("Payment failed:", err);
+        alert("Payment failed: " + err.message);
+    }
+}
+function handleSavingsDeposit() {
+    const amtInput = document.getElementById('saveAmount');
+    if (!amtInput || !amtInput.value || amtInput.value < 100) {
+        return alert(" please enter a valid amount (Min ₦100).");
+    }
+
+    pendingAmount = parseFloat(amtInput.value);
+    pendingAction = 'savings';
+    
+    document.getElementById('payModalTitle').innerText = "Fund Savings";
+    document.getElementById('payModalDesc').innerText = `Deposit ₦${pendingAmount.toLocaleString()} into your loan savings wallet.`;
+    
+    closeModal('saveModal'); 
+    openModal('paymentMethodModal');
+}
+
+function handleDailyRepayment() {
+    if (!activeLoan || activeLoan.status !== 'approved') {
+        return alert(" you do not have an active loan to pay for.");
+    }
+
+    pendingAmount = currentRepayTotal;
+    pendingAction = 'repayment';
+
+    document.getElementById('payModalTitle').innerText = "Daily Installment";
+    document.getElementById('payModalDesc').innerText = `Pay today's installment of ₦${pendingAmount.toLocaleString()}. (Includes 20% to your savings)`;
+    openModal('paymentMethodModal');
+}
+
+// --- LOAN WORKFLOW ---
 function startLoanWorkflow() {
     if (activeLoan && activeLoan.status !== 'repaid') {
-        return alert("Process Denied: You already have an active or pending loan.");
+        return alert(" you have an active engagement already. Clear the current loan first!");
     }
 
-    const start = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
-    const diffDays = Math.floor((new Date() - start) / (1000 * 60 * 60 * 24));
+    const startDate = profile.loan_savings_start ? new Date(profile.loan_savings_start) : new Date(profile.created_at);
+    const diffDays = Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24));
 
     if (diffDays < 30) {
-        return alert(`You need to save for 30 days. ${30 - diffDays} days remaining.`);
+        return alert(`Not yet ${30 - diffDays} days of saving remaining before 3x unlock.`);
     }
 
-    if (parseFloat(profile.loan_balance) <= 0) {
-        return alert("Your savings wallet is empty.");
-    }
+    const currentBal = parseFloat(profile.loan_balance || 0);
+    if (currentBal < 100) return alert("Your loan wallet is too light. Save more first!");
 
-    // Calculation: 3x Savings
-    calculatedLoan = profile.loan_balance * 3;
-    calculatedInterest = calculatedLoan * 0.10;
+    calculatedLoan = currentBal * 3;
+    calculatedInterest = calculatedLoan * 0.10; // 10% Upfront Interest
 
-    // Fill Modal Data
     document.getElementById('targetLoanAmt').innerText = calculatedLoan.toLocaleString();
     document.getElementById('interestAmt').innerText = calculatedInterest.toLocaleString();
-    
     openModal('interestModal');
 }
-async function submitLoanRequest() {
-    const bank = document.getElementById('bankName').value;
-    const acc = document.getElementById('accNum').value;
-    const name = document.getElementById('accName').value; // Still get the value
 
-    if (!calculatedLoan || calculatedLoan === 0) {
-        calculatedLoan = parseFloat(profile.loan_balance) * 3;
-        calculatedInterest = calculatedLoan * 0.10;
-    }
+// Paystack Gateway
+function payWithPaystack(mode) {
+    let amt = 0;
+    if (mode === 'savings') amt = document.getElementById('saveAmount').value;
+    if (mode === 'interest') amt = calculatedInterest;
+    if (mode === 'repayment') amt = currentRepayTotal;
 
-    if (!bank || acc.length < 10) {
-        return alert("Please enter a valid Bank and 10-digit Account Number.");
-    }
+    if (!amt || amt < 100) return alert('Minimum transaction is ₦100');
 
-    // UPDATED INSERT LOGIC
-    const { error } = await client.from('loan_requests').insert([{
-        user_id: user.id,
-        amount: calculatedLoan,
-        interest_paid: true,
-        interest_amount: calculatedInterest,
-        bank_name: bank,
-        account_number: acc,
-        // REMOVED 'account_name' to stop the schema error
-        // If you add the column later, you can uncomment the line below:
-        // account_name: name 
-        status: 'pending' 
-    }]);
-
-    if (!error) {
-        closeModal('loanDetailsModal');
-        showStatus(
-            "Application Sent!", 
-            `Request for ₦${calculatedLoan.toLocaleString()} is now with Admin.`, 
-            "success"
-        );
-        setTimeout(() => { location.reload(); }, 2000);
-    } else {
-        console.error("Supabase Error:", error);
-        alert("Submission failed: " + error.message);
-    }
+    PaystackPop.setup({
+        key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
+        email: profile.email || `${profile.phone}@zoe.network`,
+        amount: Math.round(amt * 100),
+        currency: 'NGN',
+        callback: (response) => syncToDatabase(amt, mode, 'paystack')
+    }).openIframe();
 }
 
-// --- USER SIDE: REPAYMENT HANDLER ---
-// Global variable to hold the calculated amount for the current session
-let currentRepayTotal = 0;
-
-async function handleDailyRepayment() {
-    if (!activeLoan) return alert("No active loan found.");
-
-    // FIXED MATH: Divide original amount by 90
-    const originalLoanAmount = Number(activeLoan.amount);
-    const baseDaily = originalLoanAmount / 90;
-    const savingsPortion = baseDaily * 0.16; // Exactly 16%
-    let totalDue = baseDaily + savingsPortion;
-
-    // Apply 10% penalty if late and past Day 0
-    if (checkLateStatus() && (profile.loan_days > 0)) {
-        totalDue = totalDue * 1.10;
-    }
-
-    currentRepayTotal = Math.round(totalDue);
-
-    // Update Modal UI and Open
-    // We update the modal's display to show the daily total, not the remaining loan balance
-    document.getElementById('repayAmtDisplay').innerText = currentRepayTotal.toLocaleString();
-    openModal('repayMethodModal');
-}
-
-async function processRepaymentChoice(method) {
-    closeModal('repayMethodModal');
-
-    if (method === 'online') {
-        payWithPaystack('repayment', currentRepayTotal);
-    } else {
-        // CASH REPAYMENT
-        const { error } = await client.from('contributions').insert([{
-            user_id: user.id,
-            amount: currentRepayTotal,
-            status: 'pending',
-            type: 'cash',
-            category: 'loan_repayment' // <--- CRITICAL: Must match the Admin's check
-        }]);
-        
-        if(!error) {
-            showStatus("Cash Notified", "Admin will verify your payment and update your days.", "pending");
-            setTimeout(() => location.reload(), 2000);
-        }
-    }
-}
-
-function proceedToLoanDetails() {
-    closeModal('interestModal');
-    document.getElementById('disburseAmtText').innerText = calculatedLoan.toLocaleString();
-    openModal('loanDetailsModal');
-}
-
-// --- UPDATED REPAYMENT LOGIC (With 10% Late Fee) ---
-
-
-// --- REPLACED ALERT WITH BEAUTIFIED STATUS ---
-
-function showStatus(title, msg, type = 'success') {
-    const iconBox = document.getElementById('statusIcon');
-    iconBox.style.background = type === 'success' ? '#e6f7f1' : '#fff8e6';
-    iconBox.style.color = type === 'success' ? '#00b578' : '#ff9500';
-    iconBox.innerHTML = type === 'success' ? '<i class="fas fa-check"></i>' : '<i class="fas fa-clock"></i>';
-    
-    document.getElementById('statusTitle').innerText = title;
-    document.getElementById('statusMsg').innerText = msg;
-    openModal('statusModal');
-}
-
-// --- CASH PAYMENT HANDLER ---
 async function submitCashPayment(mode) {
-    let amt;
-    
-    // Determine the amount based on what they are paying for
-    if (mode === 'savings') {
-        amt = document.getElementById('saveAmount').value;
-    } else {
-        // This uses the interest calculated in startLoanWorkflow()
-        amt = calculatedInterest; 
-    }
+    let amt = (mode === 'savings') ? document.getElementById('saveAmount').value : calculatedInterest;
+    if (!amt || amt < 100) return alert("Enter a valid amount.");
 
-    // 1. Validation
-    if (!amt || amt < 100) {
-        return alert("Please enter a valid amount (Minimum ₦100).");
-    }
-
-    // 2. Insert into contributions table as 'pending'
     const { error } = await client.from('contributions').insert([{
         user_id: user.id,
         amount: parseFloat(amt),
         status: 'pending',
         type: 'cash',
-        category: mode === 'savings' ? 'loan_savings' : 'loan_interest'
+        category: (mode === 'savings') ? 'loan_savings' : 'loan_interest'
     }]);
 
     if (!error) {
-        // 3. Close the active modal
         closeModal(mode === 'savings' ? 'saveModal' : 'interestModal');
-        
-        // 4. Show the beautified status message
-        showStatus(
-            "Request Submitted", 
-            "Your cash payment is pending verification. Please allow up to 24 hours for admin approval.", 
-            "pending"
-        );
-        
-        // 5. Trigger SMS notification for Admin (optional)
-        await triggerBackendSMS(`Zoe Admin: Cash payment of ₦${parseFloat(amt).toLocaleString()} recorded from ${profile.phone}. Please verify.`);
-    } else {
-        console.error("Supabase Error:", error.message);
-        alert("There was an error submitting your request. Please try again.");
+        showStatus("Request Logged", "An Agent will verify this cash payment shortly.", "pending");
     }
 }
 
-// --- SMS NOTIFICATION HANDLER ---
-async function triggerBackendSMS(msg) {
-    console.log("🔔 Zoe SMS System:", msg); // Local log so you can see it's working in the console
+async function syncToDatabase(amt, mode, gateway) {
+    console.log(`L.E.G A.C.Y Processing: ${mode}`);
 
-    try {
-        // This calls your Supabase Edge Function named 'Sms'
-        // If you haven't deployed this function yet, it will catch the error below
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/Sms`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${SUPABASE_KEY}` 
-            },
-            body: JSON.stringify({ 
-                phone: profile.phone, 
-                message: msg 
-            })
-        });
+    // --- MODE: ADD SAVINGS (Only this affects the wallet balance) ---
+    if (mode === 'savings') {
+        const newBal = (parseFloat(profile.loan_balance) || 0) + parseFloat(amt);
+        
+        await client.from('profiles').update({ loan_balance: newBal }).eq('id', user.id);
 
-        if (!response.ok) {
-            console.warn("SMS service returned an error. Check your Edge Function deployment.");
+        await client.from('contributions').insert([{ 
+            user_id: user.id, 
+            amount: amt, 
+            status: 'approved', 
+            type: gateway, 
+            category: 'loan_savings' 
+        }]);
+
+        alert("Savings reinforced,!");
+        location.reload();
+    } 
+    
+    // --- MODE: LOAN INTEREST (Goes to Admin, does NOT touch profile balance) ---
+    else if (mode === 'interest') {
+        const { error: intError } = await client.from('contributions').insert([{ 
+            user_id: user.id, 
+            amount: amt, 
+            status: 'approved', 
+            type: gateway, 
+            category: 'loan_interest' // This is the 'Admin Fee' label
+        }]);
+
+        if (!intError) {
+            closeModal('interestModal');
+            document.getElementById('disburseAmtText').innerText = Number(calculatedLoan).toLocaleString();
+            setTimeout(() => { openModal('loanDetailsModal'); }, 300);
         }
-    } catch (e) {
-        // We catch the error so the user's UI doesn't crash if the SMS fails
-        console.error("SMS skip: No backend endpoint found. Transaction still saved.");
+    }
+
+    // --- MODE: DAILY REPAYMENT ---
+    else if (mode === 'repayment') {
+        await processDailyRepayment(amt);
+        alert("Day " + (Number(profile.loan_days) + 1) + " Repayment Confirmed!");
+        location.reload();
     }
 }
 
-function checkLateStatus() {
-    // Basic logic: if last update was more than 24 hours ago and loan is still active
-    if (!profile.updated_at) return false;
-    const lastUpdate = new Date(profile.updated_at);
-    const hoursSince = Math.floor((new Date() - lastUpdate) / (1000 * 60 * 60));
-    return hoursSince > 30; // 6-hour grace period after 24 hours
-}
+async function submitLoanRequest() {
+    console.log("L.E.G A.C.Y AI: Initiating Loan Request Deployment...");
 
-// --- WITHDRAWAL (FIXED) ---
-async function handleSavingsWithdrawal() {
-    if (activeLoan && activeLoan.status !== 'repaid') {
-        return alert("Withdrawal Locked: You cannot withdraw savings while you have an active loan.");
+    // 1. Capture the Inputs
+    const bank = document.getElementById('bankName').value.trim();
+    const acc = document.getElementById('accNum').value.trim();
+    const accName = document.getElementById('accName') ? document.getElementById('accName').value.trim() : "Not Provided";
+
+    // 2. Validation Check
+    if (!bank || acc.length < 10) {
+        return alert("Hold on, !! We need a valid Bank Name and a 10-digit Account Number.");
     }
-    if (profile.loan_balance <= 0) return alert("Your balance is ₦0.");
-    openModal('withdrawModal');
-}
 
-async function submitWithdrawalRequest() {
-    const amt = parseFloat(document.getElementById('withdrawAmount').value);
-    const bank = document.getElementById('wBankName').value;
-    const acc = document.getElementById('wAccNum').value;
+    // 3. Safety Net: Ensure amount is valid
+    if (!calculatedLoan || calculatedLoan <= 0) {
+        calculatedLoan = (parseFloat(profile.loan_balance) || 0) * 3;
+    }
 
-    if (!amt || amt > profile.loan_balance) return alert("Invalid amount.");
-    if (!bank || acc.length < 10) return alert("Enter valid bank details.");
-
-    const { error } = await client.from('withdrawals').insert({
+    // 4. STEP A: Database Injection (Insert the Loan Request)
+    const { error: loanError } = await client.from('loan_requests').insert([{
         user_id: user.id,
-        amount: amt,
+        amount: calculatedLoan,          
+        original_amount: calculatedLoan, 
+        interest_paid: true,
+        interest_amount: calculatedInterest || (calculatedLoan * 0.10), 
         bank_name: bank,
         account_number: acc,
-        account_name: profile.full_name,
-        status: 'pending'
-    });
-
-    if (!error) {
-        // Deduct UI balance
-        const newBal = profile.loan_balance - amt;
-        await client.from('profiles').update({ loan_balance: newBal }).eq('id', user.id);
-        closeModal('withdrawModal');
-        showStatus("Request Sent", "Admin will process your withdrawal within 24 hours.", "pending");
-    }
-}
-
-// --- REPAYMENT LOGIC (Daily 90 Days) ---
-async function openRepayModal() {
-    const baseDaily = activeLoan.amount / 90;
-    const total = baseDaily * 1.20 * (checkLateStatus() ? 1.10 : 1.0);
-    
-    // Create a simple confirmation with two options or a custom modal
-    const choice = confirm(`Daily Installment: ₦${Math.round(total).toLocaleString()}\n\nClick OK to pay with Card/Transfer\nClick CANCEL if you want to report a Cash Payment.`);
-    
-    if (choice) {
-        payWithPaystack('repayment', total);
-    } else {
-        const confirmCash = confirm("Submit a notification for Cash Repayment?");
-        if(confirmCash) submitCashRepayment(total);
-    }
-}
-
-async function submitCashRepayment(amt) {
-    const { error } = await client.from('contributions').insert([{
-        user_id: user.id,
-        amount: amt,
+        account_name: accName,
         status: 'pending',
-        type: 'cash',
-        category: 'loan_repayment' // Admin will see this in their "Payment Verifications"
+        created_at: new Date().toISOString()
     }]);
 
-    if (!error) {
-        showStatus("Notification Sent", "Admin will verify your cash repayment and update your Day counter shortly.", "pending");
+    if (loanError) {
+        console.error("L.E.G A.C.Y Debug Log:", loanError);
+        return alert("the database rejected the request: " + loanError.message);
     }
-}
 
-function payWithPaystack(mode) {
-  // Pulls the amount from the Loan Savings input field
-  const amt = Number(document.getElementById('saveAmount').value);
-  if (!amt || amt < 100) return alert('Minimum ₦100');
+    // 5. STEP B: Reset the Clock (CRITICAL FIX)
+    // We update the profile to reset the 30-day cycle start date to NOW
+    const { error: profileError } = await client.from('profiles').update({
+        loan_savings_start: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+    }).eq('id', user.id);
 
-  PaystackPop.setup({
-    key: 'pk_live_988851c6dff5a63928310640a0265fe5b7d254af',
-    email: profile.email || `${profile.phone}@zoe.network`,
-    amount: Math.round(amt * 100),
-    currency: 'NGN',
-    callback: () => syncToDatabase(amt)
-  }).openIframe();
-}
+    if (profileError) {
+        console.warn("L.E.G A.C.Y Warning: Profile clock reset failed, but loan was logged.");
+    }
 
-async function syncToDatabase(amt) {
-  // 1. Calculate the new LOAN balance accurately
-  const currentBal = Number(profile.loan_balance || 0);
-  const newBal = currentBal + Number(amt);
-  
-  // 2. Update the Database Profile loan_balance
-  const { error: upError } = await client.from('profiles')
-    .update({ loan_balance: newBal })
-    .eq('id', user.id);
-
-  if (upError) return alert("Update failed: " + upError.message);
-
-  // 3. Insert the Contribution Record (Targeted to loan_savings)
-  await client.from('contributions').insert([{ 
-    user_id: user.id, 
-    amount: amt, 
-    status: 'approved', 
-    type: 'paystack',
-    category: 'loan_savings' // This ensures it registers as a Loan Saving
-  }]);
-
-  // 4. CLEAN THE PHONE NUMBER (Fixes Error 107)
-  let cleanPhone = profile.phone.toString().replace(/\D/g, ''); 
-  if (cleanPhone.startsWith('0')) {
-    cleanPhone = '234' + cleanPhone.substring(1);
-  }
-
-  // 5. Trigger SMS via Edge Function
-  try {
-    await fetch(`https://bvnivavjmrmfnagwqvxc.supabase.co/functions/v1/Sms`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${SUPABASE_KEY}` 
-      },
-      body: JSON.stringify({ 
-        phone: cleanPhone, 
-        message: `Zoe: Your loan savings of ₦${Number(amt).toLocaleString()} was successful. Your new Loan  balance is ₦${newBal.toLocaleString()}.` 
-      })
-    });
-  } catch (smsErr) {
-    console.error("SMS failed to send:", smsErr);
-  }
-
-  // 6. Final UI Refresh
-  alert(`Success! ₦${Number(amt).toLocaleString()} added to your loan savings.`);
-  location.reload();
-}
-
-
-
-async function processOnlineRepayment(amt) {
-    // 1. Calculate the day increment
-    const nextDay = (profile.loan_days || 0) + 1;
+    // 6. Success Flow
+    closeModal('loanDetailsModal');
     
-    // 2. Calculate the 20% savings portion to add back to wallet
-    const baseAmt = amt / 1.20; 
-    const savingsBackToWallet = baseAmt * 0.20;
-
-    // 3. Update Profile immediately
-    const { error } = await client.from('profiles').update({
-        loan_days: nextDay,
-        loan_balance: (parseFloat(profile.loan_balance) || 0) + savingsBackToWallet,
-        updated_at: new Date().toISOString()
-    }).eq('id', user.id);
-
-    // 4. Record the contribution as 'approved' automatically
-    await client.from('contributions').insert([{
-        user_id: user.id,
-        amount: amt,
-        status: 'approved',
-        type: 'online',
-        category: 'loan_repayment'
-    }]);
-
-    if (!error) {
-        // Refresh the UI to show the new Day count
-        loadData();
-    }
-}
-
-async function processDailyRepayment(totalPaid) {
-    // 1. Math: Split the 16% back to savings using the FIXED 90-day division
-    const originalLoanAmount = Number(activeLoan.amount);
-    const baseAmount = originalLoanAmount / 90;
-    const savingsPortion = baseAmount * 0.16; // Exactly 16% goes back to savings
-
-    // 2. Update Profile: New Balance + Increment Loan Day
-    const newBal = (parseFloat(profile.loan_balance) || 0) + savingsPortion;
-    const newDayCount = (Number(profile.loan_days) || 0) + 1;
-
-    await client.from('profiles').update({
-        loan_balance: newBal,
-        loan_days: newDayCount,
-        updated_at: new Date().toISOString()
-    }).eq('id', user.id);
-
-    // 3. Log the contribution
-    await client.from('contributions').insert({
-        user_id: user.id,
-        amount: totalPaid,
-        category: 'loan_repayment',
-        status: 'approved'
-    });
-
-    if (newDayCount >= 90) {
-        await client.from('loan_requests').update({ status: 'repaid' }).eq('id', activeLoan.id);
-        showStatus("Loan Fully Repaid!", "Congratulations! Your loan is fully repaid and you can apply for a higher limit.");
+    if (typeof showStatus === "function") {
+        showStatus(
+            "Application Deployed!", 
+            `Your request for ₦${calculatedLoan.toLocaleString()} has been sent to the Admin. Stand by for disbursement.`, 
+            "success"
+        );
     } else {
-        showStatus("Payment Confirmed", `Day ${newDayCount} complete! ₦${Math.round(savingsPortion)} added to your future savings.`);
+        alert("Application Deployed successfully, !!");
     }
-    
-    loadData();
+
+    // Final Refresh to sync the UI
+    setTimeout(() => {
+        location.reload();
+    }, 3000);
+}
+async function refreshProfile() {
+  try {
+    const { data, error } = await client.from('profiles').select('*').eq('id', user.id).single();
+    if (error) throw error;
+    profile = data;
+    if (typeof updateUI === 'function') updateUI(); // optional UI sync
+    return profile;
+  } catch (err) {
+    console.error('refreshProfile error', err);
+    throw err;
+  }
+}
+
+async function handleSavingsWithdrawal() {
+  try {
+    // refresh both profile and loan to ensure freshest state
+    await refreshProfile();
+    await refreshActiveLoan();
+
+    if (activeLoan) {
+      return alert('Cannot withdraw: active loan exists. Clear loan first.');
+    }
+
+    const withdrawable = Number(profile.loan_balance || 0);
+    if (withdrawable <= 0) return alert('No loan-savings available to withdraw.');
+
+    // pre-fill modal and open
+    const input = document.getElementById('withdrawAmount');
+    if (input) input.value = withdrawable;
+
+    openModal('withdrawModal');
+    return { allowed: true, amountAvailable: withdrawable };
+  } catch (err) {
+    console.error('handleSavingsWithdrawal error', err);
+    alert('Error checking withdrawal eligibility: ' + (err.message || err));
+    throw err;
+  }
 }
 
 
-// --- HELPER UI FUNCTIONS ---
+// --- BRIDGE: Handle Daily Repayment ---
+// === processDailyRepayment stays identical to yours; included for completeness (no alerts changed here) ===
+async function processDailyRepayment({ days = 1, includeLate = true } = {}) {
+  if (!user || !user.id) throw new Error('No logged-in user');
+
+  // 1) refresh fresh state
+  await refreshProfile();
+  await refreshActiveLoan();
+
+  if (!activeLoan) throw new Error('No active loan found.');
+
+  // normalize days
+  days = Math.max(1, Math.floor(Number(days) || 1));
+
+  // 2) core amounts
+  const originalAmt = Number(activeLoan.original_amount || activeLoan.amount || 0);
+  if (originalAmt <= 0) throw new Error('Invalid original loan amount.');
+
+  const remaining = Number(activeLoan.remaining_amount ?? originalAmt);
+
+  const baseDaily = originalAmt / 90;               // principal per day
+  const savingsDaily = baseDaily * 0.20;            // 20% (goes to loan_balance)
+  const lateFeePerDay = includeLate ? (baseDaily * 0.10) : 0; // 10% per day penalty
+
+  // 3) compute actual principal we can deduct (do not go below zero)
+  const principalRequested = baseDaily * days;
+  const principalCanDeduct = Math.min(remaining, principalRequested);
+
+  // If principalCanDeduct is 0, nothing to deduct (maybe already repaid)
+  if (principalCanDeduct <= 0) {
+    // try finalize just in case
+    await finalizeLoanIfNeeded(activeLoan);
+    throw new Error('Loan already settled or no principal to deduct.');
+  }
+
+  // compute how many full days were covered by principalCanDeduct
+  // (this is integer number of full day chunks)
+  let daysCovered = Math.floor(principalCanDeduct / baseDaily);
+  // if principalCanDeduct equals remaining and is not exact multiple of baseDaily,
+  // treat it as final repay: count remaining as final day
+  if (principalCanDeduct === remaining && (principalCanDeduct % baseDaily) !== 0) {
+    // ensure we credit at least 1 final day
+    daysCovered = Math.max(1, daysCovered);
+  }
+
+  // totals
+  const savingsToAdd = Math.round(savingsDaily * daysCovered); // add to loan_balance
+  const penaltyTotal = includeLate ? Math.round(lateFeePerDay * daysCovered) : 0;
+  const principalDeducted = Math.round(principalCanDeduct);
+
+  const newRemaining = Math.max(0, Math.round(remaining - principalDeducted));
+  const newStatus = newRemaining <= 0 ? 'repaid' : 'approved';
+
+  try {
+    // 4) update loan row
+    const { error: loanErr } = await client.from('loan_requests')
+      .update({
+        remaining_amount: newRemaining,
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', activeLoan.id);
+
+    if (loanErr) throw loanErr;
+
+    // 5) update profile: add savings and update loan_days
+    const currentLoanDays = Number(profile.loan_days || 0);
+    const updatedLoanDays = newStatus === 'repaid' ? 90 : (currentLoanDays + daysCovered);
+
+    const { error: profErr } = await client.from('profiles')
+      .update({
+        loan_balance: (Number(profile.loan_balance || 0) + savingsToAdd),
+        loan_days: updatedLoanDays,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+
+    if (profErr) throw profErr;
+
+    // 6) create contribution logs (principal, savings, penalty)
+    const contribs = [];
+    contribs.push({
+      user_id: user.id,
+      amount: principalDeducted,
+      status: 'approved',
+      type: 'online',
+      category: 'loan_repayment',
+      created_at: new Date().toISOString()
+    });
+
+    if (savingsToAdd > 0) {
+      contribs.push({
+        user_id: user.id,
+        amount: savingsToAdd,
+        status: 'approved',
+        type: 'system',
+        category: 'loan_savings',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    if (penaltyTotal > 0) {
+      contribs.push({
+        user_id: user.id,
+        amount: penaltyTotal,
+        status: 'approved',
+        type: 'system',
+        category: 'loan_penalty',
+        created_at: new Date().toISOString()
+      });
+    }
+
+    if (contribs.length) {
+      const { error: cErr } = await client.from('contributions').insert(contribs);
+      if (cErr) throw cErr;
+    }
+
+    // 7) refresh state and finalize if needed
+    await refreshProfile();
+    const { data: latestLoan } = await client.from('loan_requests').select('*').eq('id', activeLoan.id).maybeSingle();
+
+    // if loan fully paid, set activeLoan = null and mark repaid status (ensure)
+    if (!latestLoan || Number(latestLoan.remaining_amount || 0) <= 0 || latestLoan.status === 'repaid') {
+      // ensure DB row is exactly repaid
+      await client.from('loan_requests').update({ remaining_amount: 0, status: 'repaid', updated_at: new Date().toISOString() }).eq('id', activeLoan.id);
+      activeLoan = null;
+    } else {
+      activeLoan = latestLoan;
+    }
+
+    // notify user
+    if (newStatus === 'repaid' && profile?.phone) {
+      try { await sendSms(profile.phone, `Zoe: 🎉 Your loan is fully repaid.`); } catch(e){ /* ignore */ }
+    }
+
+    if (typeof updateUI === 'function') updateUI();
+
+    return {
+      principalDeducted,
+      savingsAdded: savingsToAdd,
+      penaltyCharged: penaltyTotal,
+      remaining: newRemaining,
+      loanRepaid: newStatus === 'repaid',
+      daysCounted: daysCovered
+    };
+
+  } catch (err) {
+    console.error('processDailyRepayment error', err);
+    throw err;
+  }
+}
+// --- UTILS ---
 function toggleMenu() {
     const side = document.getElementById('sidebar');
     const over = document.getElementById('sidebarOverlay');
     side.classList.toggle('active');
     over.style.display = side.classList.contains('active') ? 'block' : 'none';
 }
-
 function openModal(id) { document.getElementById(id).style.display = 'flex'; }
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+function showStatus(title, msg, type) { 
+    document.getElementById('statusTitle').innerText = title;
+    document.getElementById('statusMsg').innerText = msg;
+    openModal('statusModal');
+}
+function logout() { localStorage.clear(); window.location.href = 'index.html'; }
 
-function showStatus(title, msg, type = 'success') {
-    alert(`${title}\n${msg}`); // Replace with your statusModal UI logic
+
+async function executePayment(method) {
+    closeModal('paymentMethodModal'); 
+    
+    if (method === 'online') {
+        console.log("L.E.G A.C.Y: Routing to Paystack...");
+        payWithPaystack(pendingAction); 
+    } 
+    else if (method === 'cash') {
+        console.log("L.E.G A.C.Y: Logging Cash Payment...");
+        
+        const catName = (pendingAction === 'savings') ? 'loan_savings' : 'loan_repayment';
+        
+        const { error } = await client.from('contributions').insert([{
+            user_id: user.id,
+            amount: pendingAmount,
+            status: 'pending',
+            type: 'cash',
+            category: catName
+        }]);
+
+        if (!error) {
+            alert(`Success, Cash request for ₦${pendingAmount.toLocaleString()} sent to Admin.`);
+            pendingAction = null;
+            pendingAmount = 0;
+        } else {
+            alert("Database Error: " + error.message);
+        }
+    }
 }
 
-function logout() {
-    localStorage.clear();
-    window.location.href = 'index.html';
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.style.display = 'flex';
 }
+
 
 </script>

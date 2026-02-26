@@ -131,8 +131,16 @@
                onkeyup="filterQuickPayUsers()" 
                style="width:100%; padding:12px; margin-bottom:15px; border:1px solid #ddd; border-radius:8px;">
         
-        <div id="quickPayList" style="max-height:300px; overflow-y:auto;">
-            </div>
+        <div id="quickPayList" style="max-height:300px; overflow-y:auto;"></div>
+<div id="quickPayActions" style="margin-top:15px; display:none;">
+    <label>Days to Pay: <input type="number" id="daysToPay" min="1" value="1" style="width:60px;"></label>
+    <select id="payDirection">
+        <option value="forward">Forward</option>
+        <option value="backward">Backward / Missed</option>
+    </select>
+    <button onclick="confirmQuickPay()" style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:5px; margin-left:10px;">Confirm</button>
+    <div id="calculatedAmount" style="margin-top:10px; font-weight:bold;"></div>
+</div>
     </div>
 </div>
 
@@ -225,6 +233,151 @@
             `).join('');
         }
 
+
+let selectedUser = null;
+
+// When admin clicks on a user in quick pay list
+function selectQuickPayUser(uid) {
+    selectedUser = allUsers.find(u => u.id === uid);
+    if(!selectedUser) return;
+
+    document.getElementById('quickPayActions').style.display = 'block';
+    document.getElementById('daysToPay').value = 1;
+    document.getElementById('payDirection').value = 'forward';
+    updateCalculatedAmount();
+}
+
+// Call this when admin confirms a "request money" action
+async function confirmRequestPayment(requestId) {
+    try {
+        // 1. Fetch the request details
+        const { data: req, error: reqErr } = await client.from('loan_requests')
+            .select('*')
+            .eq('id', requestId)
+            .single();
+        if (reqErr || !req) throw reqErr || new Error("Request not found.");
+
+        if (req.status === 'approved') {
+            alert("This request has already been approved.");
+            return;
+        }
+
+        // 2. Update request as approved
+        const { error: updateErr } = await client.from('loan_requests')
+            .update({ status: 'approved', updated_at: new Date().toISOString() })
+            .eq('id', requestId);
+        if (updateErr) throw updateErr;
+
+        // 3. Add the requested amount to user balance automatically
+        const { data: profile, error: profErr } = await client.from('profiles')
+            .select('*')
+            .eq('id', req.user_id)
+            .single();
+        if (profErr || !profile) throw profErr || new Error("Profile not found.");
+
+        const newBalance = Number(profile.loan_balance || 0) + Number(req.amount || 0);
+        const { error: balErr } = await client.from('profiles')
+            .update({ loan_balance: newBalance, updated_at: new Date().toISOString() })
+            .eq('id', req.user_id);
+        if (balErr) throw balErr;
+
+        // 4. Record the contribution (optional log)
+        await client.from('contributions').insert([{
+            user_id: req.user_id,
+            amount: req.amount,
+            status: 'approved',
+            type: 'admin',
+            category: 'loan_request'
+        }]);
+
+        alert(`Request of ₦${req.amount.toLocaleString()} approved and added to user balance.`);
+
+    } catch (err) {
+        console.error("confirmRequestPayment error:", err);
+        alert("Failed to confirm request: " + (err.message || err));
+    }
+}
+// Update amount display dynamically
+function updateCalculatedAmount() {
+    if(!selectedUser) return;
+    const loan = Number(selectedUser.loan_amount || 0);
+    const dailyPrincipal = loan / 90;
+    const savingsPercent = 0.20;
+    const lateFeePercent = 0.10;
+
+    const days = Number(document.getElementById('daysToPay').value || 1);
+    const direction = document.getElementById('payDirection').value;
+
+    let totalDue = 0;
+    if(direction === 'forward') {
+        totalDue = dailyPrincipal * (1 + savingsPercent) * days; // forward = normal + savings
+    } else {
+        totalDue = dailyPrincipal * (1 + savingsPercent + lateFeePercent) * days; // backward = include late fee
+    }
+
+    document.getElementById('calculatedAmount').innerText = `Total Due: ₦${totalDue.toLocaleString()}`;
+}
+
+// Confirm payment
+async function confirmQuickPay() {
+    if(!selectedUser) return alert("Select a user first.");
+
+    const days = Number(document.getElementById('daysToPay').value || 1);
+    const direction = document.getElementById('payDirection').value;
+
+    if(days <= 0) return alert("Invalid number of days.");
+
+    if(!confirm(`Confirm ${direction} payment of ${days} day(s) for ${selectedUser.full_name}?`)) return;
+
+    // Fetch profile & active loan
+    const { data: profile } = await client.from('profiles').select('*').eq('id', selectedUser.id).single();
+    const { data: loan } = await client.from('loan_requests').select('*').eq('user_id', selectedUser.id).eq('status','approved').maybeSingle();
+    if(!loan) return alert("No active loan.");
+
+    const principal = Number(loan.amount);
+    const dailyPrincipal = principal / 90;
+    const savingsPercent = 0.20;
+    const lateFeePercent = 0.10;
+
+    let totalDue = 0;
+    let savingsToAdd = dailyPrincipal * savingsPercent * days;
+    let newLoanDays = profile.loan_days || 0;
+
+    if(direction === 'forward') {
+        totalDue = dailyPrincipal * (1 + savingsPercent) * days;
+        newLoanDays += days;
+    } else {
+        totalDue = dailyPrincipal * (1 + savingsPercent + lateFeePercent) * days;
+        newLoanDays += days; // still increment days
+    }
+
+    // Update profile
+    await client.from('profiles').update({
+        loan_days: newLoanDays,
+        loan_balance: (Number(profile.loan_balance) || 0) + savingsToAdd,
+        updated_at: new Date().toISOString()
+    }).eq('id', selectedUser.id);
+
+    // Record contribution
+    await client.from('contributions').insert([{
+        user_id: selectedUser.id,
+        amount: totalDue,
+        status: 'approved',
+        type: 'cash',
+        category: 'loan_repayment'
+    }]);
+
+    // Send SMS
+    if(profile.phone) {
+        await sendSms(profile.phone, `Zoe Admin: Payment confirmed for ${days} day(s). Total: ₦${totalDue.toLocaleString()}`);
+    }
+
+    alert(`Success! Total payment ₦${totalDue.toLocaleString()}`);
+    selectedUser = null;
+    document.getElementById('quickPayActions').style.display = 'none';
+    loadAllData();
+}
+
         function renderWithdrawals(list) {
             const container = document.getElementById('withdrawalList');
             if(!list || list.length === 0) { container.innerHTML = '<p style="padding:15px; color:#999;">No pending withdrawals</p>'; return; }
@@ -272,70 +425,120 @@
         // --- UPDATED ACTION LOGIC ---
 
 // --- FIXED APPROVE PAYMENT ---
+
 async function approvePayment(id, uid, amt, category, phone) {
-    if (!confirm(`Approve this payment of ₦${Number(amt).toLocaleString()}?`)) return;
+  try {
+    amt = Number(amt);
+    if (!amt || amt <= 0) throw new Error('Invalid amount');
 
-    try {
-        // 1. Fetch user profile to get current savings and day count
-        const { data: profile, error: pError } = await client.from('profiles').select('*').eq('id', uid).single();
-        if (pError) throw new Error("Profile not found");
+    // 1. Get fresh profile
+    const { data: profile, error: profErr } = await client.from('profiles').select('*').eq('id', uid).single();
+    if (profErr || !profile) throw profErr || new Error('Profile not found');
 
-        let message = "";
+    let updatedLoanBalance = null;
 
-        if (category === 'loan_repayment') {
-            // --- LOAN REPAYMENT LOGIC ---
-            
-            // Get the current active loan
-            const { data: activeLoan } = await client.from('loan_requests')
-                .select('*')
-                .eq('user_id', uid)
-                .eq('status', 'approved')
-                .maybeSingle();
-
-            if (!activeLoan) throw new Error("No active loan found for this user.");
-
-            // MATH: 84% goes to loan, 16% goes to savings (as per your +16% request)
-            // If they pay 1000: 840 reduces debt, 160 goes to their savings wallet
-            const principalReduction = Number(amt) * 0.84; 
-            const savingsPortion = Number(amt) * 0.16; 
-
-            // Update Profile: Increment Day + Add the 16% to their Savings Balance
-            const nextDay = (Number(profile.loan_days) || 0) + 1;
-            await client.from('profiles').update({
-                loan_days: nextDay,
-                loan_balance: (Number(profile.loan_balance) || 0) + savingsPortion,
-                updated_at: new Date().toISOString()
-            }).eq('id', uid);
-
-            // Update Loan: Reduce the debt
-            const remainingDebt = Math.max(0, activeLoan.amount - principalReduction);
-            await client.from('loan_requests').update({
-                amount: remainingDebt,
-                status: remainingDebt <= 0 ? 'repaid' : 'approved'
-            }).eq('id', activeLoan.id);
-
-            message = `Zoe: Payment Approved! Day ${nextDay}/90. ₦${Math.round(savingsPortion)} added to your savings. Remaining debt: ₦${Math.round(remainingDebt).toLocaleString()}`;
-
-        } else {
-            // --- REGULAR SAVINGS APPROVAL ---
-            const newBal = (Number(profile.loan_balance) || 0) + Number(amt);
-            await client.from('profiles').update({ loan_balance: newBal }).eq('id', uid);
-            message = `Zoe: Your savings of ₦${Number(amt).toLocaleString()} has been approved. New balance: ₦${newBal.toLocaleString()}`;
-        }
-
-        // Finalize: Mark the contribution as approved
-        await client.from('contributions').update({ status: 'approved' }).eq('id', id);
-
-        await sendSms(phone, message);
-        alert("Payment processed successfully!");
-        loadAllData(); // Refresh admin list
-
-    } catch (err) {
-        console.error(err);
-        alert("Error: " + err.message);
+    // 2. Handle categories
+    if (category === 'main_savings') {
+      const newMain = (Number(profile.balance) || 0) + amt;
+      await client.from('profiles').update({ balance: newMain, updated_at: new Date().toISOString() }).eq('id', uid);
     }
-}
+    else if (category === 'loan_savings') {
+      const newLoanBal = (Number(profile.loan_balance) || 0) + amt;
+      await client.from('profiles').update({ loan_balance: newLoanBal, updated_at: new Date().toISOString() }).eq('id', uid);
+      updatedLoanBalance = newLoanBal;
+    }
+    else if (category === 'loan_repayment') {
+      // Fetch active approved loan
+      const { data: activeLoan } = await client.from('loan_requests')
+        .select('*')
+        .eq('user_id', uid)
+        .eq('status', 'approved')
+        .maybeSingle();
 
+      let newLoanDays = profile.loan_days || 0;
+      let newLoanBalance = profile.loan_balance || 0;
+
+      if (activeLoan) {
+        const original = Number(activeLoan.original_amount || activeLoan.amount || 0);
+        const baseDaily = original / 90;
+        const savingsDaily = baseDaily * 0.2;
+
+        // Determine days covered
+        let daysCovered = Math.max(1, Math.floor(amt / (baseDaily + savingsDaily)));
+
+        // Update loan_days and loan_balance
+        newLoanDays += daysCovered;
+        newLoanBalance += Math.round(savingsDaily * daysCovered);
+
+        // Update profile
+        await client.from('profiles').update({
+          loan_days: newLoanDays,
+          loan_balance: newLoanBalance,
+          updated_at: new Date().toISOString()
+        }).eq('id', uid);
+
+        // Update loan_requests status
+        const remaining = Math.max(0, Math.round(original - (baseDaily * newLoanDays)));
+        const newStatus = remaining <= 0 ? 'repaid' : 'approved';
+        await client.from('loan_requests').update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        }).eq('id', activeLoan.id);
+
+        // Contribution logs
+        const contribs = [
+          { user_id: uid, amount: Math.round(baseDaily * daysCovered), status: 'approved', type: 'admin', category: 'loan_repayment', created_at: new Date().toISOString() },
+          { user_id: uid, amount: Math.round(savingsDaily * daysCovered), status: 'approved', type: 'admin', category: 'loan_savings', created_at: new Date().toISOString() }
+        ];
+        await client.from('contributions').insert(contribs);
+      } else {
+        // fallback if no active loan
+        newLoanBalance += amt;
+        await client.from('profiles').update({ loan_balance: newLoanBalance, updated_at: new Date().toISOString() }).eq('id', uid);
+      }
+
+      updatedLoanBalance = newLoanBalance;
+    }
+    else if (category === 'loan_interest') {
+      // interest goes to admin — mark contribution approved only
+      updatedLoanBalance = profile.loan_balance || 0;
+    } else {
+      // fallback: add to loan balance
+      const newLoanBal = (Number(profile.loan_balance) || 0) + amt;
+      await client.from('profiles').update({ loan_balance: newLoanBal, updated_at: new Date().toISOString() }).eq('id', uid);
+      updatedLoanBalance = newLoanBal;
+    }
+
+    // 3. Mark the contribution approved
+    await client.from('contributions').update({ status: 'approved' }).eq('id', id);
+
+    // 4. Remove UI card / refresh
+    const btn = document.querySelector(`button[onclick*="${String(id)}"]`);
+    if (btn) {
+      const card = btn.closest('.request-card');
+      if (card) card.remove();
+    } else if (typeof loadAllData === 'function') {
+      loadAllData();
+    }
+
+    // 5. Send SMS safely
+    if (phone) {
+      try {
+        const smsBalance = updatedLoanBalance !== null ? `Loan-savings: ₦${Number(updatedLoanBalance).toLocaleString()}` : '';
+        const smsDays = profile.loan_days ? `Repayment Day: ${profile.loan_days}/90` : '';
+        await sendSms(phone, `Zoe: ₦${Number(amt).toLocaleString()} approved. ${smsDays} ${smsBalance}`.trim());
+      } catch (smsErr) {
+        console.warn('SMS failed but approval succeeded:', smsErr);
+      }
+    }
+
+    return { success: true };
+
+  } catch (err) {
+    console.error('approvePayment error:', err);
+    return { success: false, error: err };
+  }
+}
 
 async function runLateAudit() {
     try {
@@ -370,61 +573,50 @@ async function runLateAudit() {
     } catch (err) {
         console.error("Unexpected Audit Crash:", err);
     }
-}
+}async function approveLoanDisbursement(id, uid, amt, phone) {
+  if (!confirm("Confirm Disbursement: Have you transferred the funds to the user's BANK account?")) return;
 
-// --- FIXED LOAN DISBURSEMENT ---
-async function approveLoanDisbursement(id, uid, amt, phone) {
-    if(!confirm("Confirm Disbursement: Have you transferred the funds?")) return;
+  try {
+    // 1. Fetch the loan request
+    const { data: req, error: reqErr } = await client.from('loan_requests').select('*').eq('id', id).single();
+    if (reqErr || !req) throw reqErr || new Error('Loan request not found');
 
-    const { error: loanError } = await client.from('loan_requests')
-        .update({ 
-            status: 'approved',
-            disbursed_at: new Date().toISOString() 
-        })
-        .eq('id', id);
+    if (req.status === 'approved' || req.status === 'disbursed') {
+      alert('This loan request is already approved/disbursed.');
+      return;
+    }
 
-    if (loanError) return alert("Update failed");
+    // 2. Mark request as approved
+    const { error: updReqErr } = await client.from('loan_requests').update({
+      status: 'approved',
+      disbursed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq('id', id);
+    if (updReqErr) throw updReqErr;
 
-    await client.from('profiles').update({
-        loan_days: 0,
-        updated_at: new Date().toISOString()
+    // 3. Reset repayment counter
+    const { error: profileErr } = await client.from('profiles').update({
+      loan_days: 0,
+      updated_at: new Date().toISOString()
     }).eq('id', uid);
+    if (profileErr) throw profileErr;
 
-    await sendSms(phone, `Zoe: Your loan of ₦${amt.toLocaleString()} is disbursed. Repayment starts at Day 0.`);
-    alert("Loan disbursed!");
-    loadAllData(); 
-}
+    // 4. Send SMS safely
+    if (phone) {
+      try {
+        await sendSms(phone, `Zoe: Your loan of ₦${Number(amt).toLocaleString()} has been sent to your bank account. Repayment starts tomorrow.`);
+      } catch (smsErr) {
+        console.warn("SMS failed but disbursement succeeded:", smsErr);
+      }
+    }
 
+    alert(`Success! Loan marked as disbursed. User's app balance was NOT affected.`);
+    loadAllData();
 
-async function approveLoanDisbursement(id, uid, amt, phone) {
-    if(!confirm("Confirm Disbursement: Have you transferred the funds? This starts the user at Day 0.")) return;
-
-    // 1. Update Loan Request Status
-    const { error: loanError } = await client.from('loan_requests')
-        .update({ 
-            status: 'approved',
-            disbursed_at: new Date().toISOString() 
-        })
-        .eq('id', id);
-
-    if (loanError) return alert("Update failed: " + loanError.message);
-
-    // 2. Initialize Repayment Tracker (Reset to Day 0)
-    const { error: profileError } = await client.from('profiles').update({
-        loan_days: 0,
-        updated_at: new Date().toISOString()
-    }).eq('id', uid);
-
-    if (profileError) return alert("Profile sync failed: " + profileError.message);
-
-    // 3. UI Feedback
-    document.getElementById('loanDisbursementList').innerHTML = "<p style='padding:15px;'>Syncing records...</p>";
-    
-    // 4. Send Notification & Refresh
-    await sendSms(phone, `Zoe: Your loan of ₦${amt.toLocaleString()} is disbursed. Repayment starts at Day 0. Good luck!`);
-    await loadAllData(); 
-    
-    alert("Loan marked as disbursed. User dashboard will now switch to Repayment Mode.");
+  } catch (err) {
+    console.error('approveLoanDisbursement error', err);
+    alert("Error approving loan. Check console.");
+  }
 }
 
 // Function to show the modal and clear old search
@@ -449,63 +641,86 @@ function filterQuickPayUsers() {
                 <strong>${u.full_name}</strong>
                 <div style="font-size:11px; color:#888;">Day ${u.loan_days || 0}/90</div>
             </div>
-            <button onclick="confirmManualTick('${u.id}', '${u.full_name}', ${u.loan_days || 0})" 
-                    style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:5px;">
-                Tick Paid
-            </button>
+            <button onclick="selectQuickPayUser('${u.id}')" 
+        style="background:#28a745; color:white; border:none; padding:8px 12px; border-radius:5px;">
+    Manage Loan
+</button>
         </div>
     `).join('');
 }
 
-async function confirmManualTick(uid, name, currentDay) {
-    if (!confirm(`Mark Day ${currentDay + 1} as paid for ${name}?`)) return;
 
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if(modal) modal.style.display = 'none';
+    selectedUser = null;
+    document.getElementById('quickPayActions').style.display = 'none';
+}
+// --- FIXED MANUAL TICK CALCULATION ---
+
+async function confirmManualTick(uid, name) {
+    if (!confirm(`Confirm payment for ${name}?`)) return;
+
+    // 1. Fetch the user's profile and approved loan
     const { data: profile } = await client.from('profiles').select('*').eq('id', uid).single();
-    
     const { data: loan } = await client.from('loan_requests')
-        .select('amount')
+        .select('*')
         .eq('user_id', uid)
         .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
 
     if (!loan) return alert("User has no active approved loan.");
 
-    const baseDaily = loan.amount / 90;
-    const savingsToReturn = baseDaily * 0.20;
-    const newDay = (currentDay || 0) + 1;
-    const newLoanBal = (parseFloat(profile.loan_balance) || 0) + savingsToReturn;
+    // 2. Determine how many days have passed since last payment
+    const lastPaymentDate = new Date(profile.updated_at || loan.disbursed_at);
+    const today = new Date();
 
-    const { error } = await client.from('profiles').update({
-        loan_days: newDay,
-        loan_balance: newLoanBal
+    const diffDays = Math.floor((today - lastPaymentDate) / (1000*60*60*24));
+    if(diffDays <= 0) {
+        alert(`${name} has already paid today.`);
+        return;
+    }
+
+    // 3. Calculate amounts
+    const principal = Number(loan.amount);
+    const dailyPrincipal = principal / 90;
+
+    const savingsPercent = 0.20; // 20% savings
+    const lateFeePercent = 0.10; // 10% late fee per missed day
+
+    // Total amount due for all missed days
+    const totalDue = dailyPrincipal * (1 + savingsPercent + lateFeePercent) * diffDays;
+
+    // Portion that goes to user's savings / loan balance
+    const savingsToAdd = dailyPrincipal * savingsPercent * diffDays;
+
+    // 4. Update profile
+    const newLoanDays = (profile.loan_days || 0) + diffDays;
+    const newLoanBalance = (profile.loan_balance || 0) + savingsToAdd;
+
+    await client.from('profiles').update({
+        loan_days: newLoanDays,
+        loan_balance: newLoanBalance,
+        updated_at: new Date().toISOString()
     }).eq('id', uid);
 
-    if (!error) {
-        await client.from('contributions').insert([{
-            user_id: uid,
-            amount: baseDaily * 1.20,
-            status: 'approved',
-            type: 'cash',
-            category: 'loan_repayment'
-        }]);
+    // 5. Record contribution (for logs)
+    await client.from('contributions').insert([{
+        user_id: uid,
+        amount: totalDue,
+        status: 'approved',
+        type: 'cash',
+        category: 'loan_repayment'
+    }]);
 
-        document.getElementById('adminQuickPayModal').style.display = 'none';
-
-        // Use the global helper we just fixed
-        if (profile.phone) {
-            await sendSms(profile.phone, `Zoe Admin: Day ${newDay} payment confirmed. ₦${Math.round(savingsToReturn)} added to your wallet.`);
-        }
-
-        alert(`${name} is now on Day ${newDay}.`);
-        loadAllData();
-    } else {
-        alert("Update failed: " + error.message);
+    // 6. Notify user
+    if (profile.phone) {
+        await sendSms(profile.phone, `Zoe Admin: Day ${newLoanDays} payment confirmed. Total paid: ₦${totalDue.toFixed(2)} (includes savings & late fee).`);
     }
+
+    alert(`Success! Payment recorded for ${diffDays} day(s). Total: ₦${totalDue.toFixed(2)}`);
+    loadAllData();
 }
-
-
         async function approveWithdrawal(id, uid, amt, phone) {
             if(!confirm("Mark as paid?")) return;
             // When standard withdrawal is approved, user balance is usually already deducted on request. 

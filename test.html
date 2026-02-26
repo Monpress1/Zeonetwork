@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zoe - Payment & Sync</title>
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background: #f0f4f3; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .card { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
+            width: 100%; 
+            max-width: 400px; 
+            text-align: center; 
+        }
+        .logo { color: #004225; font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+        p { color: #555; font-size: 15px; margin-bottom: 30px; }
+        
+        .input-box { 
+            display: flex; 
+            align-items: center; 
+            background: #f9f9f9; 
+            border: 2px solid #eee; 
+            border-radius: 12px; 
+            padding: 5px 15px; 
+            margin-bottom: 20px; 
+        }
+        .input-box:focus-within { border-color: #004225; }
+        .prefix { font-weight: bold; color: #333; margin-right: 8px; font-size: 17px; }
+        input { 
+            border: none; 
+            background: transparent; 
+            padding: 12px 0; 
+            font-size: 17px; 
+            width: 100%; 
+            outline: none; 
+            letter-spacing: 1px;
+        }
+        
+        .btn-pay { 
+            background: #004225; 
+            color: white; 
+            border: none; 
+            width: 100%; 
+            padding: 16px; 
+            border-radius: 12px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+        }
+        .btn-pay:hover { background: #002d1a; transform: translateY(-2px); }
+        .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+        
+        #status { margin-top: 15px; font-size: 14px; font-weight: 600; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="logo">EKSUHUB</div>
+    <p>Complete payment to sync your account with the Hub.</p>
+
+    <div class="input-box">
+        <span class="prefix">+234</span>
+        <input type="tel" id="phoneInput" placeholder="7077575301" maxlength="10">
+    </div>
+
+    <button id="payBtn" class="btn-pay" onclick="payWithPaystack()">Sync & Pay N500</button>
+    
+    <div id="status"></div>
+</div>
+
+<script>
+    // --- UPDATED CONFIGURATION ---
+    const PAYSTACK_PUBLIC_KEY = "pk_live_988851c6dff5a63928310640a0265fe5b7d254af";
+    
+    const KUDI_TOKEN = "WHdyLwbhC4kJxjqoiS5a2crIXTmN9DYBusAEfeFgPlVtpGZ6O3Mz18R07vnUQK";
+    const SENDER_ID = "ZOE NETWORK"; 
+    const PROXY = "https://corsproxy.io/?";
+
+    function payWithPaystack() {
+        const phone = document.getElementById('phoneInput').value;
+        const status = document.getElementById('status');
+        const payBtn = document.getElementById('payBtn');
+
+        if (phone.length !== 10 || isNaN(phone)) {
+            alert("Please enter exactly 10 digits (the number after +234)");
+            return;
+        }
+
+        const fullPhone = "234" + phone;
+
+        const handler = PaystackPop.setup({
+            key: PAYSTACK_PUBLIC_KEY,
+            email: "user@zoe.com", // You can update this with actual user email
+            amount: 100 * 100, // N100.00
+            currency: "NGN",
+            ref: 'EKS-' + Math.floor((Math.random() * 1000000000) + 1),
+            callback: function(response) {
+                // Payment Success!
+                payBtn.disabled = true;
+                status.style.display = "block";
+                status.style.color = "#004225";
+                status.innerText = "Payment Verified! Finalizing Sync...";
+                
+                sendKudiSMS(fullPhone);
+            },
+            onClose: function() {
+                alert('Transaction cancelled. Sync incomplete.');
+            }
+        });
+
+        handler.openIframe();
+    }
+
+    async function sendKudiSMS(phoneNumber) {
+        const status = document.getElementById('status');
+        const message = "You have signed in with Eksuhub.. you have now synced with the hub";
+        
+        const kudiUrl = `https://my.kudisms.net/api/sms?token=${KUDI_TOKEN}&senderID=${encodeURIComponent(SENDER_ID)}&recipients=${phoneNumber}&message=${encodeURIComponent(message)}&gateway=2`;
+
+        try {
+            const res = await fetch(PROXY + encodeURIComponent(kudiUrl));
+            const data = await res.json();
+            
+            if (data.status === "success" || data.error_code === "000") {
+                status.innerHTML = "✅ SUCCESS! Your account is synced.<br>SMS alert sent.";
+                setTimeout(() => {
+                    // Redirect to your hub dashboard here
+                    // window.location.href = "https://yourhub.com/dashboard";
+                }, 3000);
+            } else {
+                status.style.color = "red";
+                status.innerText = "Payment received, but SMS error: " + data.msg;
+            }
+        } catch (e) {
+            status.style.color = "red";
+            status.innerText = "Connection error while sending SMS alert.";
+            console.error(e);
+        }
+    }
+</script>
+
+</body>
+</html>

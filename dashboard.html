@@ -350,21 +350,33 @@ async function processWithdrawal() {
     location.reload();
   }
 }
-
 async function loadActivities() {
-  const { data } = await client.from('contributions')
+  const { data, error } = await client
+    .from('contributions')
     .select('*')
     .eq('user_id', user.id)
+    .eq('status', 'approved')
+    .eq('category', 'main_savings') // 🔥 Only pure savings deposits
     .order('created_at', { ascending: false })
     .limit(3);
 
   const list = document.getElementById('activityList');
-  if (!data?.length) return;
+
+  if (error) {
+    console.error('Activity fetch error:', error);
+    list.innerHTML = '<p style="text-align:center;font-size:12px;color:#999;">Error loading activities</p>';
+    return;
+  }
+
+  if (!data?.length) {
+    list.innerHTML = '<p style="text-align:center;font-size:12px;color:#999;">No recent deposits</p>';
+    return;
+  }
 
   list.innerHTML = data.map(c => `
     <div class="activity-item">
-      <div class="activity-icon" style="background:${c.status==='approved'?'#e8f5f0':'#fff8e0'};color:${c.status==='approved'? 'var(--primary)':'#f59e0b'}">
-        <i class="fa ${c.status==='approved'?'fa-check':'fa-clock'}"></i>
+      <div class="activity-icon" style="background:#e8f5f0;color:var(--primary)">
+        <i class="fa fa-check"></i>
       </div>
       <div class="activity-details">
         <p class="activity-name">Deposit via ${c.type.toUpperCase()}</p>
@@ -400,12 +412,13 @@ async function syncToDatabase(amt) {
   if (upError) return alert("Update failed: " + upError.message);
 
   // 3. Insert the Contribution Record
-  await client.from('contributions').insert([{ 
-    user_id: user.id, 
-    amount: amt, 
-    status: 'approved', 
-    type: 'paystack' 
-  }]);
+await client.from('contributions').insert([{ 
+  user_id: user.id, 
+  amount: amt, 
+  status: 'approved', 
+  type: 'paystack',
+  category: 'main_savings' // 🔥 VERY IMPORTANT
+}]);
 
   // 4. CLEAN THE PHONE NUMBER (Fixes Error 107)
   let cleanPhone = profile.phone.toString().replace(/\D/g, ''); 
