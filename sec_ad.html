@@ -180,6 +180,44 @@
             document.getElementById('lastRefreshed').innerText = "Last synced: " + new Date().toLocaleTimeString();
         }
 
+// Add this at the top of your script
+window.onload = checkAdminAccess;
+
+async function checkAdminAccess() {
+    // 1. Check if a user is even logged in
+    const { data: { session } } = await client.auth.getSession();
+
+    if (!session) {
+        alert("Access Denied: Please log in.");
+        window.location.href = "index.html"; // Redirect to your login page
+        return;
+    }
+
+    // 2. Fetch the profile to check admin status
+    const { data: profile, error } = await client.from('profiles')
+        .select('is_admin')
+        .eq('id', session.user.id)
+        .single();
+
+    if (error || !profile?.is_admin) {
+        document.body.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif;">
+                <i class="fas fa-lock" style="font-size:48px; color:red; margin-bottom:20px;"></i>
+                <h1>403 - Access Denied</h1>
+                <p>You do not have administrative privileges.</p>
+                <button onclick="client.auth.signOut().then(() => window.location.reload())" 
+                        style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">
+                    Logout and Try Another Account
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    // 3. If they ARE an admin, proceed to load data
+    loadAllData();
+}
+
         function updateStats(users, p, l, w) {
             let mainTotal = users.reduce((acc, curr) => acc + (parseFloat(curr.balance) || 0), 0);
             let loanTotal = users.reduce((acc, curr) => acc + (parseFloat(curr.loan_balance) || 0), 0);
